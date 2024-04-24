@@ -113,10 +113,10 @@ public class Body : Layout, ILayoutManager
             }
         }
 
-        int overrideI = -1;
+        // Все элементы исчезли за пределы ViewPort'а
         if (countRemoved == _cachePool.Count && _cachePool.Count > 0)
         {
-            overrideI = CalculationMethods.CalcIndexByY(_scrollY, Height, ItemsSource.Count);
+            int overrideI = CalculationMethods.CalcIndexByY(_scrollY, Height, ItemsSource.Count);
             var last = _cachePool.Last();
             last.I = overrideI;
             last.Content.BindingContext = ItemsSource[overrideI];
