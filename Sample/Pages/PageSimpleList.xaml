@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:controls="clr-namespace:Sample.Controls"
+             x:Class="Sample.Pages.PageSimpleList"
+             Title="PageSimpleList">
+    <ScrollView>
+        <controls:SimpleList x:Name="list">
+            <controls:SimpleList.ItemTemplate>
+                <DataTemplate>
+                    <Grid Margin="10">
+                        <Label HeightRequest="40"
+                               VerticalTextAlignment="Center"
+                               FontSize="24"
+                               Text="{Binding ., StringFormat='HELLO WORLD! {0}'}"/>
+                    </Grid>
+                </DataTemplate>
+            </controls:SimpleList.ItemTemplate>
+        </controls:SimpleList>
+    </ScrollView>
+</ContentPage>
