@@ -15,7 +15,7 @@ public partial class PageList
 
             items.Add(new ItemTest
             {
-                Color = isEven ? Colors.Black : Colors.Black.WithAlpha(0.8f),
+                Color = isEven ? Colors.Black : Colors.DarkGray,
                 Number = i + 1,
             });
         }

@@ -75,11 +75,11 @@ public class Body2 : Layout, ILayoutManager
                 var outRes = CalculationMethods.IsOut(item, scrolledY, viewPort);
                 switch (outRes)
                 {
-                    case OutType.Ender:
+                    case VisibleTypes.Ender:
                         shiftedEnd.Add(item);
                         countRemoved++;
                         break;
-                    case OutType.Starter:
+                    case VisibleTypes.Starter:
                         shiftedStart.Add(item);
                         countRemoved++;
                         break;

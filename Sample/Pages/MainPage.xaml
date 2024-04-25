@@ -8,6 +8,8 @@
         <Button Clicked="Button_Clicked"
                 Text="Open virtual list"/>
 
+        <Button Clicked="Button_Clicked_2"
+                Text="Open advanced virtual list"/>
 
         <Button Clicked="Button_Clicked_1"
                 Text="Open bindable vertical list"/>

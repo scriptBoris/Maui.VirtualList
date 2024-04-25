@@ -3,6 +3,7 @@ using System.Collections;
 using MauiVirtualList.Enums;
 using System.Collections.ObjectModel;
 using MauiVirtualList.Utils;
+using System.Diagnostics;
 
 namespace MauiVirtualList.Controls;
 
@@ -11,6 +12,7 @@ public class Body : Layout, ILayoutManager
     private readonly List<VirtualItem> _cachePool = [];
     private readonly DataTemplate _defaultItemTemplate = new(() => new Label { Text = "NO_TEMPLATE" });
     private double _scrollY;
+    private double _scrollY_Old;
 
     #region props
     // item template
@@ -54,7 +56,7 @@ public class Body : Layout, ILayoutManager
 
     public void Scrolled(double scrolledY, double vp_width, double vp_height)
     {
-        double oldY = _scrollY;
+        _scrollY_Old = _scrollY;
         _scrollY = scrolledY;
         ViewPortWidth = vp_width;
         ViewPortHeight = vp_height;
@@ -94,19 +96,23 @@ public class Body : Layout, ILayoutManager
         var shiftedStart = new List<VirtualItem>();
         int countRemoved = 0;
 
+        double vpFill = 0;
         for (int j = 0; j < _cachePool.Count; j++)
         {
             var item = _cachePool[j];
-            var outRes = CalculationMethods.IsOut(item, _scrollY, ViewPortHeight);
-            switch (outRes)
+            var res = CalculationMethods.CalculateVisiblePercentage(item.OffsetY, item.BottomLim, _scrollY, _scrollY + ViewPortHeight);
+            switch (res.VisibleType)
             {
-                case OutType.Ender:
+                case VisibleTypes.Ender:
                     shiftedEnd.Add(item);
                     countRemoved++;
                     break;
-                case OutType.Starter:
+                case VisibleTypes.Starter:
                     shiftedStart.Add(item);
                     countRemoved++;
+                    break;
+                case VisibleTypes.Visible:
+                    vpFill += res.Percent * item.DrawedSize.Height;
                     break;
                 default:
                     break;
@@ -129,28 +135,43 @@ public class Body : Layout, ILayoutManager
             overrideOffsetY = _scrollY;
         }
 
-        // Элемент исчез за пределы нижней границы ViewPort'а
-        foreach (var item in shiftedEnd)
+        if (!vpFill.IsEquals(ViewPortHeight))
         {
-            _cachePool.Remove(item);
-            var second = _cachePool.First();
-            int newI = second.I - 1;
-            var newContext = ItemsSource[newI];
-            item.I = newI;
-            item.Content.BindingContext = newContext;
-            item.OffsetY = second.OffsetY - item.DrawedSize.Height;
-            _cachePool.Insert(0, item);
-        }
+            // Элемент исчез из пределов нижней границы ViewPort'а
+            foreach (var item in shiftedEnd)
+            {
+                //if (_cachePool[0].I == 0)
+                //    continue;
 
-        // Элемент исчез за пределы верхней границы ViewPort'а
-        foreach (var item in shiftedStart)
-        {
-            _cachePool.Remove(item);
-            var last = _cachePool.Last();
-            int newI = last.I + 1;
-            item.I = newI;
-            item.Content.BindingContext = ItemsSource[newI];
-            _cachePool.Insert(_cachePool.Count, item);
+                if (shiftedStart.Count > 0)
+                    break;
+
+                _cachePool.Remove(item);
+                var second = _cachePool.First();
+                int newI = second.I - 1;
+                var newContext = ItemsSource[newI];
+                item.I = newI;
+                item.Content.BindingContext = newContext;
+                item.OffsetY = second.OffsetY - item.DrawedSize.Height;
+                _cachePool.Insert(0, item);
+            }
+
+            // Элемент исчез за пределы верхней границы ViewPort'а
+            foreach (var item in shiftedStart)
+            {
+                //if (_cachePool.Last().I == ItemsSource.Count - 1)
+                //    continue;
+
+                if (shiftedEnd.Count > 0)
+                    break;
+
+                _cachePool.Remove(item);
+                var last = _cachePool.Last();
+                int newI = last.I + 1;
+                item.I = newI;
+                item.Content.BindingContext = ItemsSource[newI];
+                _cachePool.Insert(_cachePool.Count, item);
+            }
         }
 
         // resolve cache pool
@@ -184,18 +205,22 @@ public class Body : Layout, ILayoutManager
 
             if (cell is IView icell)
             {
-                Size m;
+                double cellHeight;
                 if (icell.DesiredSize.IsZero)
-                    m = icell.Measure(ViewPortWidth, double.PositiveInfinity);
+                    cellHeight = icell.Measure(ViewPortWidth, double.PositiveInfinity).Height;
                 else
-                    m = icell.DesiredSize;
+                    cellHeight = icell.DesiredSize.Height;
 
-                freeViewPort -= m.Height;
                 cell.OffsetY = newOffsetY;
-                newOffsetY += m.Height;
+                newOffsetY += cellHeight;
+                var visiblePercent = CalculationMethods.CalculateVisiblePercentage(cell.OffsetY, cell.BottomLim,
+                    _scrollY, _scrollY + ViewPortHeight);
 
-                if (freeViewPort <= 0)
+                double cellViewPortBusyHeight = cellHeight * visiblePercent.Percent;
+                freeViewPort -= cellViewPortBusyHeight;
+                if (freeViewPort <= 0.1)
                 {
+                    Debug.WriteLine($"feeViewPort height :: {freeViewPort}");
                     break;
                 }
             }

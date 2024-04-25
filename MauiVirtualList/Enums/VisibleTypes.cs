@@ -1,11 +1,11 @@
 ﻿namespace MauiVirtualList.Enums;
 
-public enum OutType
+public enum VisibleTypes
 {
     /// <summary>
     /// Элемент виден на экране (даже самый малый краешек элемента)
     /// </summary>
-    No,
+    Visible,
 
     /// <summary>
     /// Элемент исчез за пределы нижней границы ViewPort'а

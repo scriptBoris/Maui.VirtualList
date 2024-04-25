@@ -1,5 +1,4 @@
-﻿using Google.Android.Material.Animation;
-using MauiVirtualList.Controls;
+﻿using MauiVirtualList.Controls;
 using MauiVirtualList.Utils;
 using Microsoft.Maui.Layouts;
 using System.Collections;

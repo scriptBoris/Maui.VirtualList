@@ -18,4 +18,9 @@ public partial class MainPage : ContentPage
     {
         Navigation.PushAsync(new PageSimpleList());
     }
+
+    private void Button_Clicked_2(object sender, EventArgs e)
+    {
+        Navigation.PushAsync(new AdvanceListPage());
+    }
 }

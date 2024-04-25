@@ -21,4 +21,9 @@ public static class Exensions
     {
         return ((IView)view).Measure(widthConstraint, heightConstraint);
     }
+
+    public static bool IsEquals(this double self, double with, double epsilon = 0.000001)
+    {
+        return Math.Abs(self - with) < epsilon;
+    }
 }
