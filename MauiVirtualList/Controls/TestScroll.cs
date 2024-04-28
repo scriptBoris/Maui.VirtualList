@@ -44,8 +44,8 @@ public class TestScroll : ContentView
                 if (intent > 0)
                     intent = 0;
 
-                if (intent < -ContentHeight)
-                    intent = -ContentHeight;
+                if (intent < -(ContentHeight - Height))
+                    intent = -(ContentHeight - Height);
 
                 ScrollY = intent;
                 break;

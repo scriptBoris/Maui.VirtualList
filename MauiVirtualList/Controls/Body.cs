@@ -179,7 +179,7 @@ public class Body : Layout, ILayoutManager
 
         return new AnalyzeResult
         {
-            
+
         };
     }
 
@@ -216,7 +216,7 @@ public class Body : Layout, ILayoutManager
                     goto endTopCache;
             }
         }
-        endTopCache:
+    endTopCache:
 
         // find bottom cache
         for (int i = _cachePool.Count - 1; i >= 0; i--)
@@ -240,7 +240,7 @@ public class Body : Layout, ILayoutManager
                     goto endBottomCache;
             }
         }
-        endBottomCache:
+    endBottomCache:
 
         // resolve ViewPort cache pool (middle)
         var anchor = middleStart;
@@ -257,6 +257,9 @@ public class Body : Layout, ILayoutManager
             }
             else if (indexPool <= ItemsSource.Count - 1)
             {
+                if (indexSource > ItemsSource.Count - 1)
+                    break;
+
                 if (_cachePool.Count > 30)
                     Debugger.Break();
 
@@ -330,34 +333,40 @@ public class Body : Layout, ILayoutManager
             bool topEnable = true;
             bool bottomEnable = true;
 
-            if (cacheCount % 2 != 0) 
+            if (cacheCount % 2 != 0)
             {
                 topEnable = true;
                 bottomEnable = false;
             }
 
+            // Из начала в конец
             if (topEnable && topCacheCount > bottomCacheCount)
             {
-                var cell = _cachePool.First();
-                _cachePool.Remove(cell);
                 var pre = _cachePool.Last();
-                cell.LogicIndex = pre.LogicIndex + 1;
-                cell.Content.BindingContext = ItemsSource[cell.LogicIndex];
-                cell.OffsetY = pre.BottomLim + cell.HardMeasure(ViewPortWidth, double.PositiveInfinity).Height;
-                _cachePool.Add(cell);
+                int newIndex = pre.LogicIndex + 1;
+                if (newIndex <= ItemsSource.Count - 1)
+                {
+                    var first = _cachePool.First();
+                    _cachePool.Remove(first);
+                    first.LogicIndex = newIndex;
+                    first.Content.BindingContext = ItemsSource[newIndex];
+                    first.OffsetY = pre.BottomLim + first.HardMeasure(ViewPortWidth, double.PositiveInfinity).Height;
+                    _cachePool.Add(first);
+                }
             }
 
+            // Из конца в начало
             if (bottomEnable && bottomCacheCount > topCacheCount)
             {
                 if (_cachePool.First().LogicIndex != 0)
                 {
-                    var cell = _cachePool.Last();
-                    _cachePool.Remove(cell);
+                    var last = _cachePool.Last();
+                    _cachePool.Remove(last);
                     var pre = _cachePool.First();
-                    cell.LogicIndex = pre.LogicIndex - 1;
-                    cell.Content.BindingContext = ItemsSource[cell.LogicIndex];
-                    cell.OffsetY = pre.OffsetY - cell.HardMeasure(ViewPortWidth, double.PositiveInfinity).Height;
-                    _cachePool.Insert(0, cell);
+                    last.LogicIndex = pre.LogicIndex - 1;
+                    last.Content.BindingContext = ItemsSource[last.LogicIndex];
+                    last.OffsetY = pre.OffsetY - last.HardMeasure(ViewPortWidth, double.PositiveInfinity).Height;
+                    _cachePool.Insert(0, last);
                 }
             }
         }
@@ -383,7 +392,7 @@ public class Body : Layout, ILayoutManager
         var lastDraw = _cachePool.LastOrDefault();
         if (lastDraw != null && lastDraw.LogicIndex == ItemsSource.Count - 1)
         {
-            double restartY = Height;
+            double restartY = EstimatedHeight;
             for (int i = _cachePool.Count - 1; i >= 0; i--)
             {
                 var item = _cachePool[i];
@@ -465,7 +474,6 @@ public class Body : Layout, ILayoutManager
         var cell = new VirtualItem(userView)
         {
             LogicIndex = logicIndex,
-            //PoolIndex = _cachePool.Count,
         };
         _cachePool.Add(cell);
         Children.Add(cell);
