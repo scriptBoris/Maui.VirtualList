@@ -1,10 +1,11 @@
 ﻿using MauiVirtualList.Utils;
 using Microsoft.Maui.Layouts;
+using System.Collections;
 using System.Diagnostics;
 
 namespace MauiVirtualList.Controls;
 
-[DebuggerDisplay("Index: {I} OffsetY: {OffsetY}")]
+[DebuggerDisplay("Index: {LogicIndex}; OffsetY: {OffsetY}; Vis: {CachedPercentVis}")]
 public class VirtualItem : Layout, ILayoutManager
 {
     //private Size? _drawedSize;
@@ -16,7 +17,7 @@ public class VirtualItem : Layout, ILayoutManager
     }
 
     public View Content { get; init; }
-    
+
     /// <summary>
     /// Верхний порог
     /// </summary>
@@ -26,28 +27,27 @@ public class VirtualItem : Layout, ILayoutManager
     /// Нижний порог
     /// </summary>
     public double BottomLim => OffsetY + DrawedSize.Height;
-    
-    public int I { get; set; }
+
+    /// <summary>
+    /// Индекс из ItemsSource[I] (BindingContext) который содержится в 
+    /// данном VirtualItem
+    /// </summary>
+    public int LogicIndex { get; set; }
+
+    public bool IsCacheTop { get; set; }
+    public bool IsCacheBottom { get; set; }
+    public bool IsCache => IsCacheTop || IsCacheBottom;
+
+    /// <summary>
+    /// Индекс, по которому хранится данный элемент в <see cref="Body._cachePool"/>
+    /// </summary>
+    //public int PoolIndex { get; set; }
 
     public Size DrawedSize => DesiredSize;
-    //public Size DrawedSize
-    //{
-    //    get => _drawedSize ?? DesiredSize;
-    //    set => _drawedSize = value;
-    //}
 
-    public string DBGINFO
-    {
-        get
-        {
-            if (Content is Label lbl)
-                return lbl.Text;
-            else
-                return "";
-        }
-    }
+    public string DBGINFO => Content.BindingContext.ToString()!;
 
-    public double CachedPercentVis { get; set; }
+    public double CachedPercentVis { get; set; } = -1;
 
     public Size ArrangeChildren(Rect bounds)
     {
@@ -67,5 +67,11 @@ public class VirtualItem : Layout, ILayoutManager
     protected override ILayoutManager CreateLayoutManager()
     {
         return this;
+    }
+
+    internal void Shift(int newLogicalIndex, IList source)
+    {
+        LogicIndex = newLogicalIndex;
+        Content.BindingContext = source[newLogicalIndex];
     }
 }

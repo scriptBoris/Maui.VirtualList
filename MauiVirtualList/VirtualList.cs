@@ -4,7 +4,7 @@ using MauiVirtualList.Controls;
 
 namespace MauiVirtualList;
 
-public class VirtualList : ScrollView
+public class VirtualList : TestScroll //ScrollView
 {
     private readonly Body _body = new();
 
@@ -16,24 +16,30 @@ public class VirtualList : ScrollView
 
     #region bindable props
     // items source
-    public static readonly BindableProperty ItemsSourceProperty = BindableProperty.Create(
-        nameof(ItemsSource),
-        typeof(IList),
-        typeof(VirtualList),
-        null,
-        propertyChanged: (b, o, n) =>
-        {
-            if (b is VirtualList self)
-            {
-                self._body.ItemsSource = n as IList;
-                self._body.Update(false, self.Width, self.Height);
-            }
-        }
-    );
+    //public static readonly BindableProperty ItemsSourceProperty = BindableProperty.Create(
+    //    nameof(ItemsSource),
+    //    typeof(IList),
+    //    typeof(VirtualList),
+    //    null,
+    //    propertyChanged: (b, o, n) =>
+    //    {
+    //        if (b is VirtualList self)
+    //        {
+    //            self._body.Update(true, self.Width, self.Height);
+    //            self._body.ItemsSource = n as IList;
+    //        }
+    //    }
+    //);
+    //public IList? ItemsSource
+    //{
+    //    get => GetValue(ItemsSourceProperty) as IList;
+    //    set => SetValue(ItemsSourceProperty, value);
+    //}
+
     public IList? ItemsSource
     {
-        get => GetValue(ItemsSourceProperty) as IList;
-        set => SetValue(ItemsSourceProperty, value);
+        get => _body.ItemsSource;
+        set => _body.ItemsSource = value;
     }
 
     // item template
@@ -88,17 +94,23 @@ public class VirtualList : ScrollView
         return base.ScrollToAsync(0, h, animated);
     }
 
-    protected override void OnSizeAllocated(double width, double height)
-    {
-        base.OnSizeAllocated(width, height);
-        _body.Update(false, width, height);
-    }
+    //protected override void OnSizeAllocated(double width, double height)
+    //{
+    //    base.OnSizeAllocated(width, height);
+    //    _body.Update(false, width, height);
+    //}
 
     protected override Size MeasureOverride(double widthConstraint, double heightConstraint)
     {
         _body.ViewPortHeight = heightConstraint;
         _body.ViewPortWidth = widthConstraint;
         var res = base.MeasureOverride(widthConstraint, heightConstraint);
+
+        if (res.Height> widthConstraint)
+        {
+            res = new Size(res.Width, heightConstraint);
+            DesiredSize = res;
+        }
         return res;
     }
 

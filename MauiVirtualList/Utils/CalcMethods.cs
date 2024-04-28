@@ -1,9 +1,10 @@
 ﻿using MauiVirtualList.Controls;
 using MauiVirtualList.Enums;
+using MauiVirtualList.Structs;
 
 namespace MauiVirtualList.Utils;
 
-internal static class CalculationMethods
+internal static class CalcMethods
 {
     public static VisibleTypes IsOut(VirtualItem view, double yViewPort, double heightViewPort)
     {
@@ -20,11 +21,11 @@ internal static class CalculationMethods
 
     public static int CalcIndexByY(double y, double scrollSize, int totalItems)
     {
-        if (y == 0)
+        if (y <= 0)
         {
             return 0;
         }
-        else if (y == scrollSize)
+        else if (y >= scrollSize)
         {
             return totalItems;
         }
@@ -64,13 +65,19 @@ internal static class CalculationMethods
         return count;
     }
 
-    public static OutResult CalculateVisiblePercentage(double elementTop, double elementBottom, double viewportTop, double viewportBottom)
+    public static OutResult CalcVisiblePercent(double elementTop, double elementBottom, double viewportTop, double viewportBottom)
     {
-        if (elementBottom <= viewportTop)
+        if (elementBottom < viewportTop)
+            return new OutResult(VisibleTypes.Starter);
+
+        if (elementTop > viewportBottom)
             return new OutResult(VisibleTypes.Ender);
 
-        if (elementTop >= viewportBottom)
-            return new OutResult(VisibleTypes.Starter);
+        //if (elementBottom <= viewportTop)
+        //    return new OutResult(VisibleTypes.Ender);
+
+        //if (elementTop >= viewportBottom)
+        //    return new OutResult(VisibleTypes.Starter);
 
         // Если элемент вышел за область видимости, возвращаем 0
         //if (elementBottom <= viewportTop || elementTop >= viewportBottom)
@@ -82,6 +89,8 @@ internal static class CalculationMethods
 
         // Вычисляем высоту пересечения
         double visibleHeight = visibleBottom - visibleTop;
+        if (visibleHeight == 0)
+            return new OutResult(VisibleTypes.Starter);
 
         // Вычисляем высоту элемента
         double elementHeight = elementBottom - elementTop;
@@ -90,23 +99,4 @@ internal static class CalculationMethods
         double visiblePercentage = (visibleHeight / elementHeight)/* * 100*/;
         return new OutResult(visiblePercentage);
     }
-}
-
-internal readonly struct OutResult
-{
-    public OutResult(double percent)
-    {
-        Percent = percent;
-    }
-
-    public OutResult(VisibleTypes outType)
-    {
-        VisibleType = outType;
-    }
-
-    /// <summary>
-    /// 0.0 - 1.0 %
-    /// </summary>
-    public double Percent { get; init; }
-    public VisibleTypes VisibleType { get; init; }
 }

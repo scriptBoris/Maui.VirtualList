@@ -24,7 +24,7 @@ public partial class PageList
 
     private void ToolbarItem_Clicked(object sender, EventArgs e)
     {
-        list.ScrollToAsync(0, 200, false);
+        list.ScrollToAsync(0, list.ScrollY + 200, false);
     }
 
     private void ToolbarItem_Clicked_1(object sender, EventArgs e)
@@ -35,5 +35,10 @@ public partial class PageList
     private void ToolbarItem_Clicked_2(object sender, EventArgs e)
     {
         list.ScrollToAsync(0, list.ContentSize.Height, false);
+    }
+
+    private void ToolbarItem_Clicked_3(object sender, EventArgs e)
+    {
+        list.ScrollToAsync(0, 0, false);
     }
 }

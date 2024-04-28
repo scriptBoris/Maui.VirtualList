@@ -4,6 +4,7 @@ using MauiVirtualList.Enums;
 using System.Collections.ObjectModel;
 using MauiVirtualList.Utils;
 using System.Diagnostics;
+using MauiVirtualList.Structs;
 
 namespace MauiVirtualList.Controls;
 
@@ -15,6 +16,24 @@ public class Body : Layout, ILayoutManager
     private double _scrollY_Old;
 
     #region props
+    // items source
+    public static readonly BindableProperty ItemsSourceProperty = BindableProperty.Create(
+        nameof(ItemsSource),
+        typeof(IList),
+        typeof(Body),
+        null,
+        propertyChanged: (b, o, n) =>
+        {
+            if (b is Body self)
+                self.Update(true, self.ViewPortWidth, self.ViewPortHeight);
+        }
+    );
+    public IList? ItemsSource
+    {
+        get => GetValue(ItemsSourceProperty) as IList;
+        set => SetValue(ItemsSourceProperty, value);
+    }
+
     // item template
     public static readonly BindableProperty ItemTemplateProperty = BindableProperty.Create(
         nameof(ItemTemplate),
@@ -33,20 +52,28 @@ public class Body : Layout, ILayoutManager
         set => SetValue(ItemTemplateProperty, value);
     }
 
-    public IList? ItemsSource { get; set; }
     public int Cunt => ItemsSource != null ? ItemsSource.Count : 0;
     public double ItemsSpacing { get; set; }
     public double ViewPortWidth { get; set; }
     public double ViewPortHeight { get; set; }
+    public double ViewPortBottomLim => _scrollY + ViewPortHeight;
     public double AvgHeight { get; private set; } = -1;
+    public double EstimatedHeight => Cunt * AvgHeight;
     #endregion props
 
-    public void Update(bool clear, double vp_width, double vp_height)
+    public void Update(bool isHardUpdate, double vp_width, double vp_height)
     {
-        if (clear)
+        if (isHardUpdate)
         {
             Children.Clear();
             _cachePool.Clear();
+
+            //// init tracking
+            //if (ItemsSource != null)
+            //{
+            //    _trackingItem = BuildCell(0);
+            //    _trackingItem.HardMeasure(vp_width, double.PositiveInfinity);
+            //}
         }
 
         ViewPortWidth = vp_width;
@@ -88,140 +115,159 @@ public class Body : Layout, ILayoutManager
         }
     }
 
+    private AnalyzeResult Analyze()
+    {
+        int middleOffsetStart = 0;
+        int middleOffsetEnd = _cachePool.Count - 1;
+        int topCacheCount = 0;
+        int bottomCacheCount = 0;
+        VirtualItem? middleStartItem = null;
+        VirtualItem? middleEndItem = null;
+
+        // find top cache
+        for (int i = 0; i < _cachePool.Count; i++)
+        {
+            var cell = _cachePool[i];
+            var vis = CalcMethods
+                .CalcVisiblePercent(cell.OffsetY, cell.BottomLim, _scrollY, ViewPortBottomLim);
+            cell.CachedPercentVis = vis.Percent;
+
+            if (vis.VisibleType == VisibleTypes.Starter)
+            {
+                middleOffsetStart++;
+                topCacheCount++;
+            }
+            else
+            {
+                middleStartItem = cell;
+                break;
+            }
+        }
+
+        // find bottom cache
+        for (int i = _cachePool.Count - 1; i >= 0; i--)
+        {
+            var cell = _cachePool[i];
+            var vis = CalcMethods
+                .CalcVisiblePercent(cell.OffsetY, cell.BottomLim, _scrollY, ViewPortBottomLim);
+            cell.CachedPercentVis = vis.Percent;
+
+            if (vis.VisibleType == VisibleTypes.Ender)
+            {
+                middleOffsetEnd--;
+                bottomCacheCount++;
+            }
+            else
+            {
+                middleEndItem = cell;
+                break;
+            }
+        }
+
+        // middle
+        double freeViewPort = ViewPortHeight;
+        for (int i = middleOffsetStart; i <= middleOffsetEnd; i++)
+        {
+            var cell = _cachePool[i];
+            var vis = CalcMethods
+                .CalcVisiblePercent(cell.OffsetY, cell.BottomLim, _scrollY, ViewPortBottomLim);
+            cell.CachedPercentVis = vis.Percent;
+
+            double cellViewPortBusyHeight = cell.DrawedSize.Height * vis.Percent;
+            freeViewPort -= cellViewPortBusyHeight;
+        }
+
+        return new AnalyzeResult
+        {
+            
+        };
+    }
+
     public Size ArrangeChildren(Rect bounds)
     {
-        // resolve shift's
-        double? overrideOffsetY = null;
-        var shiftedEnd = new List<VirtualItem>();
-        var shiftedStart = new List<VirtualItem>();
-        int countRemoved = 0;
+        int topCacheCount = 0;
+        int bottomCacheCount = 0;
+        int cacheCount = 0;
+        int middleOffsetStart = 0;
+        int middleOffsetEnd = _cachePool.Count != 0 ? _cachePool.Count - 1 : 0;
+        VirtualItem? middleStart = null;
 
-        double vpFill = 0;
-        for (int j = 0; j < _cachePool.Count; j++)
+        // find top cache
+        for (int i = 0; i < _cachePool.Count; i++)
         {
-            var item = _cachePool[j];
-            var res = CalculationMethods.CalculateVisiblePercentage(item.OffsetY, item.BottomLim, _scrollY, _scrollY + ViewPortHeight);
-            switch (res.VisibleType)
+            var cell = _cachePool[i];
+            var vis = CalcMethods
+                .CalcVisiblePercent(cell.OffsetY, cell.BottomLim, _scrollY, ViewPortBottomLim);
+            cell.CachedPercentVis = vis.Percent;
+
+            switch (vis.VisibleType)
+            {
+                case VisibleTypes.Visible:
+                    middleStart = cell;
+                    goto endTopCache;
+                case VisibleTypes.Starter:
+                    middleOffsetStart++;
+                    cacheCount++;
+                    topCacheCount++;
+                    cell.IsCacheTop = true;
+                    break;
+                case VisibleTypes.Ender:
+                default:
+                    goto endTopCache;
+            }
+        }
+        endTopCache:
+
+        // find bottom cache
+        for (int i = _cachePool.Count - 1; i >= 0; i--)
+        {
+            var cell = _cachePool[i];
+            var vis = CalcMethods
+                .CalcVisiblePercent(cell.OffsetY, cell.BottomLim, _scrollY, ViewPortBottomLim);
+            cell.CachedPercentVis = vis.Percent;
+
+            switch (vis.VisibleType)
             {
                 case VisibleTypes.Ender:
-                    shiftedEnd.Add(item);
-                    countRemoved++;
-                    break;
-                case VisibleTypes.Starter:
-                    shiftedStart.Add(item);
-                    countRemoved++;
+                    middleOffsetEnd--;
+                    cacheCount++;
+                    bottomCacheCount++;
+                    cell.IsCacheBottom = true;
                     break;
                 case VisibleTypes.Visible:
-                    vpFill += res.Percent * item.DrawedSize.Height;
-                    break;
+                case VisibleTypes.Starter:
                 default:
-                    break;
+                    goto endBottomCache;
             }
         }
+        endBottomCache:
 
-        // Все элементы исчезли за пределы ViewPort'а
-        if (countRemoved == _cachePool.Count && _cachePool.Count > 0)
-        {
-            int overrideI = CalculationMethods.CalcIndexByY(_scrollY, Height, ItemsSource.Count);
-            var last = _cachePool.Last();
-            last.I = overrideI;
-            last.Content.BindingContext = ItemsSource[overrideI];
-            last.OffsetY = _scrollY;
-
-            shiftedStart.AddRange(shiftedEnd);
-            shiftedStart.Remove(last);
-            shiftedEnd.Clear();
-
-            overrideOffsetY = _scrollY;
-        }
-
-        if (!vpFill.IsEquals(ViewPortHeight))
-        {
-            // Элемент исчез из пределов нижней границы ViewPort'а
-            foreach (var item in shiftedEnd)
-            {
-                //if (_cachePool[0].I == 0)
-                //    continue;
-
-                if (shiftedStart.Count > 0)
-                    break;
-
-                _cachePool.Remove(item);
-                var second = _cachePool.First();
-                int newI = second.I - 1;
-                var newContext = ItemsSource[newI];
-                item.I = newI;
-                item.Content.BindingContext = newContext;
-                item.OffsetY = second.OffsetY - item.DrawedSize.Height;
-                _cachePool.Insert(0, item);
-            }
-
-            // Элемент исчез за пределы верхней границы ViewPort'а
-            foreach (var item in shiftedStart)
-            {
-                //if (_cachePool.Last().I == ItemsSource.Count - 1)
-                //    continue;
-
-                if (shiftedEnd.Count > 0)
-                    break;
-
-                _cachePool.Remove(item);
-                var last = _cachePool.Last();
-                int newI = last.I + 1;
-                item.I = newI;
-                item.Content.BindingContext = ItemsSource[newI];
-                _cachePool.Insert(_cachePool.Count, item);
-            }
-        }
-
-        // resolve cache pool
-        var template = ItemTemplate ?? _defaultItemTemplate;
+        // resolve ViewPort cache pool (middle)
+        var anchor = middleStart;
         double freeViewPort = ViewPortHeight;
-        double newOffsetY = overrideOffsetY ?? _cachePool.FirstOrDefault()?.OffsetY ?? 0;
-        int indexPool = 0;
+        double newOffsetY = anchor?.OffsetY ?? _scrollY;
+        int indexPool = middleStart != null ? _cachePool.IndexOf(middleStart) : 0;
+        int indexSource = anchor?.LogicIndex ?? CalcMethods.CalcIndexByY(_scrollY, EstimatedHeight, ItemsSource.Count);
         while (true)
         {
-            VirtualItem? cell = null;
+            VirtualItem cell;
             if (indexPool <= _cachePool.Count - 1)
             {
                 cell = _cachePool[indexPool];
             }
             else if (indexPool <= ItemsSource.Count - 1)
             {
-                int newI = _cachePool.Count > 0 ? _cachePool.First().I + indexPool : 0;
-                var userView = template.LoadTemplate() as View;
-                if (userView == null)
-                    userView = new Label { Text = "INVALID_ITEM_TEMPLATE" };
+                if (_cachePool.Count > 30)
+                    Debugger.Break();
 
-                userView.BindingContext = ItemsSource[newI];
-                cell = new VirtualItem(userView)
+                try
                 {
-                    I = newI,
-                };
-
-                _cachePool.Add(cell);
-                Children.Add(cell);
-            }
-
-            if (cell is IView icell)
-            {
-                double cellHeight;
-                if (icell.DesiredSize.IsZero)
-                    cellHeight = icell.Measure(ViewPortWidth, double.PositiveInfinity).Height;
-                else
-                    cellHeight = icell.DesiredSize.Height;
-
-                cell.OffsetY = newOffsetY;
-                newOffsetY += cellHeight;
-                var visiblePercent = CalculationMethods.CalculateVisiblePercentage(cell.OffsetY, cell.BottomLim,
-                    _scrollY, _scrollY + ViewPortHeight);
-
-                double cellViewPortBusyHeight = cellHeight * visiblePercent.Percent;
-                freeViewPort -= cellViewPortBusyHeight;
-                if (freeViewPort <= 0.1)
+                    cell = BuildCell(indexSource);
+                }
+                catch (Exception ex)
                 {
-                    Debug.WriteLine($"feeViewPort height :: {freeViewPort}");
-                    break;
+                    Debugger.Break();
+                    throw;
                 }
             }
             else
@@ -229,12 +275,96 @@ public class Body : Layout, ILayoutManager
                 break;
             }
 
+            double cellHeight;
+            if (cell.DesiredSize.IsZero)
+                cellHeight = cell.HardMeasure(ViewPortWidth, double.PositiveInfinity).Height;
+            else
+                cellHeight = cell.DesiredSize.Height;
+
+            cell.OffsetY = newOffsetY;
+            newOffsetY += cellHeight;
+
+            var visiblePercent = CalcMethods.CalcVisiblePercent(cell.OffsetY, cell.BottomLim, _scrollY, ViewPortBottomLim);
+            cell.CachedPercentVis = visiblePercent.Percent;
+
+            // check cache
+            if (cell.IsCache && cell.CachedPercentVis > 0)
+            {
+                if (cell.IsCacheTop)
+                {
+                    cell.IsCacheTop = false;
+                    topCacheCount--;
+                }
+                else
+                {
+                    cell.IsCacheBottom = false;
+                    bottomCacheCount--;
+                }
+
+                cell.Shift(indexSource, ItemsSource);
+
+                // recalc cache
+                cell.HardMeasure(ViewPortWidth, double.PositiveInfinity);
+                visiblePercent = CalcMethods.CalcVisiblePercent(cell.OffsetY, cell.BottomLim, _scrollY, ViewPortBottomLim);
+                cell.CachedPercentVis = visiblePercent.Percent;
+
+                cacheCount--;
+            }
+
+            double cellViewPortBusyHeight = cellHeight * visiblePercent.Percent;
+            freeViewPort -= cellViewPortBusyHeight;
+
+            if (freeViewPort.IsEquals(0.0, 0.001) || cellViewPortBusyHeight == 0)
+            {
+                Debug.WriteLine($"feeViewPort height :: {freeViewPort}");
+                break;
+            }
+
             indexPool++;
+            indexSource++;
         }
 
-        // drawing
+        // shifle cache
+        if (cacheCount >= 2)
+        {
+            bool topEnable = true;
+            bool bottomEnable = true;
+
+            if (cacheCount % 2 != 0) 
+            {
+                topEnable = true;
+                bottomEnable = false;
+            }
+
+            if (topEnable && topCacheCount > bottomCacheCount)
+            {
+                var cell = _cachePool.First();
+                _cachePool.Remove(cell);
+                var pre = _cachePool.Last();
+                cell.LogicIndex = pre.LogicIndex + 1;
+                cell.Content.BindingContext = ItemsSource[cell.LogicIndex];
+                cell.OffsetY = pre.BottomLim + cell.HardMeasure(ViewPortWidth, double.PositiveInfinity).Height;
+                _cachePool.Add(cell);
+            }
+
+            if (bottomEnable && bottomCacheCount > topCacheCount)
+            {
+                if (_cachePool.First().LogicIndex != 0)
+                {
+                    var cell = _cachePool.Last();
+                    _cachePool.Remove(cell);
+                    var pre = _cachePool.First();
+                    cell.LogicIndex = pre.LogicIndex - 1;
+                    cell.Content.BindingContext = ItemsSource[cell.LogicIndex];
+                    cell.OffsetY = pre.OffsetY - cell.HardMeasure(ViewPortWidth, double.PositiveInfinity).Height;
+                    _cachePool.Insert(0, cell);
+                }
+            }
+        }
+
+        // DRAW FOR FIRST
         var firstDraw = _cachePool.FirstOrDefault();
-        if (firstDraw != null && firstDraw.I == 0)
+        if (firstDraw != null && firstDraw.LogicIndex == 0)
         {
             double restartY = 0;
             foreach (var item in _cachePool)
@@ -249,8 +379,9 @@ public class Body : Layout, ILayoutManager
             goto end;
         }
 
+        // DRAW FOR LAST
         var lastDraw = _cachePool.LastOrDefault();
-        if (lastDraw != null && lastDraw.I == ItemsSource.Count - 1)
+        if (lastDraw != null && lastDraw.LogicIndex == ItemsSource.Count - 1)
         {
             double restartY = Height;
             for (int i = _cachePool.Count - 1; i >= 0; i--)
@@ -271,6 +402,7 @@ public class Body : Layout, ILayoutManager
             goto end;
         }
 
+        // DRAW FOR MIDDLE
         double syncY = _cachePool.FirstOrDefault()?.OffsetY ?? 0;
         foreach (var item in _cachePool)
         {
@@ -320,6 +452,25 @@ public class Body : Layout, ILayoutManager
         {
             self.InvalidateArrange();
         }
+    }
+
+    private VirtualItem BuildCell(int logicIndex)
+    {
+        var template = ItemTemplate ?? _defaultItemTemplate;
+        var userView = template.LoadTemplate() as View;
+        if (userView == null)
+            userView = new Label { Text = "INVALID_ITEM_TEMPLATE" };
+
+        userView.BindingContext = ItemsSource![logicIndex];
+        var cell = new VirtualItem(userView)
+        {
+            LogicIndex = logicIndex,
+            //PoolIndex = _cachePool.Count,
+        };
+        _cachePool.Add(cell);
+        Children.Add(cell);
+
+        return cell;
     }
 
     private double CalcAvg()
