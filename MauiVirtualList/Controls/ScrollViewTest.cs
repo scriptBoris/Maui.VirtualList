@@ -1,13 +1,13 @@
 ﻿namespace MauiVirtualList.Controls;
 
-public class TestScroll : ContentView
+public class ScrollViewTest : ContentView
 {
     private double _scrollY;
     private double lastY;
 
     public event EventHandler<ScrolledEventArgs>? Scrolled;
 
-    public TestScroll()
+    public ScrollViewTest()
     {
         var pan = new PanGestureRecognizer
         {
@@ -72,5 +72,15 @@ public class TestScroll : ContentView
         ScrollY = -fixedY;
         lastY = -fixedY;
         return Task.CompletedTask;
+    }
+
+    protected override Size MeasureOverride(double widthConstraint, double heightConstraint)
+    {
+        var res = base.MeasureOverride(widthConstraint, heightConstraint);
+        if (res.Height > heightConstraint)
+        {
+            return new Size(res.Width, heightConstraint);
+        }
+        return res;
     }
 }

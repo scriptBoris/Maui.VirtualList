@@ -2,7 +2,7 @@
 
 public static class RandomNameGenerator
 {
-    private static readonly Random _random = new();
+    private static readonly Random _random = new(519);
 
     private static readonly string[] MaleFirstNames =
     {

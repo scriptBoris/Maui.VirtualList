@@ -4,7 +4,9 @@ using MauiVirtualList.Controls;
 
 namespace MauiVirtualList;
 
-public class VirtualList : TestScroll //ScrollView
+public class VirtualList : 
+    ScrollViewTest 
+    //ScrollView
 {
     private readonly Body _body = new();
 
@@ -15,48 +17,11 @@ public class VirtualList : TestScroll //ScrollView
     }
 
     #region bindable props
-    // items source
-    //public static readonly BindableProperty ItemsSourceProperty = BindableProperty.Create(
-    //    nameof(ItemsSource),
-    //    typeof(IList),
-    //    typeof(VirtualList),
-    //    null,
-    //    propertyChanged: (b, o, n) =>
-    //    {
-    //        if (b is VirtualList self)
-    //        {
-    //            self._body.Update(true, self.Width, self.Height);
-    //            self._body.ItemsSource = n as IList;
-    //        }
-    //    }
-    //);
-    //public IList? ItemsSource
-    //{
-    //    get => GetValue(ItemsSourceProperty) as IList;
-    //    set => SetValue(ItemsSourceProperty, value);
-    //}
-
     public IList? ItemsSource
     {
         get => _body.ItemsSource;
         set => _body.ItemsSource = value;
     }
-
-    // item template
-    //public static readonly BindableProperty ItemTemplateProperty = BindableProperty.Create(
-    //    nameof(ItemTemplate),
-    //    typeof(DataTemplate),
-    //    typeof(VirtualList),
-    //    null,
-    //    propertyChanged: (b, o, n) =>
-    //    {
-    //        if (b is VirtualList self)
-    //        {
-    //            self._body.ItemTemplate = n as DataTemplate;
-    //            self._body.Update(true, self.Width, self.Height);
-    //        }
-    //    }
-    //);
     public DataTemplate? ItemTemplate
     {
         get => _body.ItemTemplate;
@@ -82,41 +47,28 @@ public class VirtualList : TestScroll //ScrollView
     }
     #endregion bindable props
 
-    //[Obsolete("Please use percent system instead of pixels", true)]
-    //public new Task ScrollToAsync(double x, double y, bool animated)
-    //{
-    //    throw new NotImplementedException();
-    //}
-
     public Task ScrollToAsync(double percent, bool animated)
     {
         var h = _body.Height * percent;
         return base.ScrollToAsync(0, h, animated);
     }
 
-    //protected override void OnSizeAllocated(double width, double height)
-    //{
-    //    base.OnSizeAllocated(width, height);
-    //    _body.Update(false, width, height);
-    //}
+    private void VirtualList_Scrolled(object? sender, ScrolledEventArgs e)
+    {
+        Debug.WriteLine($"Scrollerd! Y={e.ScrollY}");
+        _body.Scrolled(e.ScrollY, Width, Height);
+    }
 
     protected override Size MeasureOverride(double widthConstraint, double heightConstraint)
     {
         _body.ViewPortHeight = heightConstraint;
         _body.ViewPortWidth = widthConstraint;
         var res = base.MeasureOverride(widthConstraint, heightConstraint);
-
-        if (res.Height> widthConstraint)
-        {
-            res = new Size(res.Width, heightConstraint);
-            DesiredSize = res;
-        }
+        //if (res.Height> widthConstraint)
+        //{
+        //    res = new Size(res.Width, heightConstraint);
+        //    DesiredSize = res;
+        //}
         return res;
-    }
-
-    private void VirtualList_Scrolled(object? sender, ScrolledEventArgs e)
-    {
-        Debug.WriteLine($"Scrollerd! Y={e.ScrollY}");
-        _body.Scrolled(e.ScrollY, Width, Height);
     }
 }

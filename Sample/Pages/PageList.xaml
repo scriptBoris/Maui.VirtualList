@@ -40,9 +40,9 @@
         </virtualList:VirtualList>
 
         <Label Grid.Row="0"
-               BackgroundColor="#80FF0000"/>
+               BackgroundColor="#800020A0"/>
 
         <Label Grid.Row="2"
-               BackgroundColor="#80FF0000"/>
+               BackgroundColor="#800020A0"/>
     </Grid>
 </ContentPage>
