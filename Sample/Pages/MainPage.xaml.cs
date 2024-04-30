@@ -23,4 +23,9 @@ public partial class MainPage : ContentPage
     {
         Navigation.PushAsync(new AdvanceListPage());
     }
+
+    private void Button_Clicked_3(object sender, EventArgs e)
+    {
+        Navigation.PushAsync(new CollectionViewPage());
+    }
 }

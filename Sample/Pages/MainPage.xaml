@@ -13,5 +13,8 @@
 
         <Button Clicked="Button_Clicked_1"
                 Text="Open bindable vertical list"/>
+
+        <Button Clicked="Button_Clicked_3"
+                Text="Open MAUI Collection view"/>
     </StackLayout>
 </ContentPage>

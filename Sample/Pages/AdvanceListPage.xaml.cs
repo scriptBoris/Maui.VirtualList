@@ -33,7 +33,7 @@ public partial class AdvanceListPage : ContentPage
         list.ItemsSource = users;
     }
 
-    private User BuildUser(bool isMan, int count)
+    public static User BuildUser(bool isMan, int count)
     {
         string firstName;
         string photo;

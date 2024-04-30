@@ -71,6 +71,9 @@
 	  <MauiXaml Update="Pages\AdvanceListPage.xaml">
 	    <Generator>MSBuild:Compile</Generator>
 	  </MauiXaml>
+	  <MauiXaml Update="Pages\CollectionViewPage.xaml">
+	    <Generator>MSBuild:Compile</Generator>
+	  </MauiXaml>
 	  <MauiXaml Update="Pages\PageSimpleList.xaml">
 	    <Generator>MSBuild:Compile</Generator>
 	  </MauiXaml>
