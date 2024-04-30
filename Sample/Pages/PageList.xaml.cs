@@ -77,4 +77,35 @@ public partial class PageList
             Items[i].Number = i + 1;
         }
     }
+
+    private async void ToolbarItem_Clicked_5(object sender, EventArgs e)
+    {
+        var res = await this.DisplayPromptAsync("remove item", "Typing index of remove",
+            keyboard: Keyboard.Numeric,
+            placeholder: "-1 (as last)");
+        if (res == null)
+            return;
+
+        int parse = -1;
+
+        if (!string.IsNullOrEmpty(res))
+        {
+            if (!int.TryParse(res, out parse))
+            {
+                await this.DisplayAlert("Error", "Bad input data", "OK");
+                return;
+            }
+        }
+
+        int remove = parse;
+        if (parse == -1 || parse > Items.Count)
+            remove = Items.Count;
+
+        Items.RemoveAt(remove);
+
+        for (int i = 0; i < Items.Count; i++)
+        {
+            Items[i].Number = i + 1;
+        }
+    }
 }

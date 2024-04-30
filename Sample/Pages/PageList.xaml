@@ -24,6 +24,10 @@
         <ToolbarItem Clicked="ToolbarItem_Clicked_4"
                      Order="Secondary"
                      Text="New item"/>
+
+        <ToolbarItem Clicked="ToolbarItem_Clicked_5"
+                     Order="Secondary"
+                     Text="Remove item"/>
     </ContentPage.ToolbarItems>
 
     <Grid RowDefinitions="*,200,*">
