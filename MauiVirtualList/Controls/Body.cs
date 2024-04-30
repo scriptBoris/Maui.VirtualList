@@ -89,7 +89,13 @@ public class Body : Layout, ILayoutManager
         if (ItemsSource == null)
             return;
 
+#if WINDOWS
+        // У винды особое представление о рисовании элементов
+        this.HardInvalidateMeasure();
+#else
+        // Вызываем прямую перерисовку элементов (для повышения производительности)
         ArrangeChildren(new Rect(0, 0, vp_width, Height));
+#endif
     }
 
     public Size ArrangeChildren(Rect bounds)
@@ -129,7 +135,16 @@ public class Body : Layout, ILayoutManager
                 if (_cachePool.Count > 30)
                     Debugger.Break();
 
-                cell = BuildCell(indexSource);
+                if (topCacheCount > 1)
+                {
+                    // todo отладить, шифт без перемещения в пуле
+                    cell = _cachePool.First();
+                    cell.Shift(indexSource, ItemsSource);
+                }
+                else
+                {
+                    cell = BuildCell(indexSource);
+                }
                 anchor ??= cell;
             }
             else
@@ -152,6 +167,7 @@ public class Body : Layout, ILayoutManager
             // check cache
             // Если во вьюпорт попали кэш элементы, то 
             // помечаем их, что они больше не КЭШе
+            // TODO странный участок кода, можно укомпановать отрефакторить
             if (cell.IsCache && cell.CachedPercentVis > 0)
             {
                 if (cell.IsCacheTop)
@@ -198,7 +214,7 @@ public class Body : Layout, ILayoutManager
         // пространство, то билдит новый элемент (TODO или берет из кэша)
         while (!freeViewPort.IsEquals(0.0, 0.001))
         {
-            if (anchor == null)
+            if (anchor == null || anchor.LogicIndex == 0)
                 break;
 
             var holeSize = CalcMethods.ChekHoleTop(_scrollY, ViewPortBottomLim, anchor);
@@ -206,10 +222,24 @@ public class Body : Layout, ILayoutManager
             {
                 int index = anchor.LogicIndex - 1;
                 int insert = _cachePool.IndexOf(anchor) - 1;
-                var cell = BuildCell(index, insert);
-                cell.HardMeasure(ViewPortWidth, double.PositiveInfinity);
+                if (insert < 0)
+                    insert = 0;
 
+                VirtualItem cell;
+                if (bottomCacheCount > 1)
+                {
+                    cell = _cachePool.Last();
+                    _cachePool.Remove(cell);
+                    _cachePool.Insert(insert, cell);
+                    cell.Shift(index, ItemsSource);
+                }
+                else
+                {
+                    cell = BuildCell(index, insert);
+                }
+                cell.HardMeasure(ViewPortWidth, double.PositiveInfinity);
                 cell.OffsetY = anchor.OffsetY - cell.DrawedSize.Height;
+                cell.CachedPercentVis = CalcMethods.CalcVisiblePercent(cell.OffsetY, cell.BottomLim, _scrollY, ViewPortBottomLim).Percent;
                 anchor = cell;
             }
             else
@@ -245,6 +275,8 @@ public class Body : Layout, ILayoutManager
             rule = ShifleCacheRules.NoCacheBottom;
 
         _shifleController.Rule = rule;
+        _shifleController.ScrollTop = _scrollY;
+        _shifleController.ScrollBottom = ViewPortBottomLim;
         while (true)
         {
             bool isEnough = _shifleController.Shifle(_cachePool, ItemsSource, ViewPortWidth,
@@ -257,20 +289,47 @@ public class Body : Layout, ILayoutManager
         }
 
         // 5: IndexLogic error correction
-        // Проходимся по всем элементам, если находим ошибки непоследовательности
-        // фиксим их
+        // Проходимся по КЭШ элементам, если находим ошибки непоследовательности
+        // ItemsSource - фиксим их
         if (_cachePool.Count > 0)
         {
-            int indexCorection = _cachePool.First().LogicIndex + 1;
-            for (int i = 1; i < _cachePool.Count; i++)
+            // up
+            var itemCorrectionUp = _cachePool.First(x => x.CachedPercentVis > 0);
+            int indexCorectionUp = itemCorrectionUp.LogicIndex;
+            for (int i = _cachePool.IndexOf(itemCorrectionUp); i >= 0; i--)
             {
                 var cell = _cachePool[i];
-                if (cell.LogicIndex != indexCorection)
+                if (cell.LogicIndex != indexCorectionUp)
                 {
-                    cell.Shift(indexCorection, ItemsSource);
+                    cell.Shift(indexCorectionUp, ItemsSource);
                     cell.HardMeasure(ViewPortWidth, double.PositiveInfinity);
                 }
-                indexCorection++;
+                indexCorectionUp--;
+            }
+
+            // down
+            var itemCorrectionDown = _cachePool.Last(x => x.CachedPercentVis > 0);
+            int indexCorectionDown = itemCorrectionDown.LogicIndex;
+            for (int i = _cachePool.IndexOf(itemCorrectionDown); i < _cachePool.Count; i++)
+            {
+                var cell = _cachePool[i];
+                if (indexCorectionDown <= ItemsSource.Count - 1)
+                {
+                    if (cell.LogicIndex != indexCorectionDown)
+                    {
+                        cell.Shift(indexCorectionDown, ItemsSource);
+                        cell.HardMeasure(ViewPortWidth, double.PositiveInfinity);
+                    }
+                }
+                // если кэш ушел за пределы itemssource
+                else
+                {
+                    // TODO временное решение
+                    _cachePool.Remove(cell);
+                    Children.Remove(cell);
+                    i--;
+                }
+                indexCorectionDown++;
             }
         }
 
@@ -420,9 +479,7 @@ public class Body : Layout, ILayoutManager
         foreach (var item in _cachePool)
         {
             var r = new Rect(0, syncY, bounds.Width, item.DrawedSize.Height);
-            if (item is IView v)
-                v.Arrange(r);
-
+            item.HardArrange(r);
             item.OffsetY = syncY;
             syncY += item.DrawedSize.Height;
         }

@@ -5,7 +5,7 @@ VisualStudioVersion = 17.9.34728.123
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Sample", "Sample\Sample.csproj", "{66571F7C-5C8E-46B8-B4F9-DEF93ECDFF45}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MauiVirtualList", "MauiVirtualList\MauiVirtualList.csproj", "{29DB60CD-2921-4D06-9527-416C38F68E07}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "MauiVirtualList", "MauiVirtualList\MauiVirtualList.csproj", "{29DB60CD-2921-4D06-9527-416C38F68E07}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

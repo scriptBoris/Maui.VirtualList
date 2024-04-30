@@ -1,4 +1,5 @@
 ﻿using System.Collections;
+using System.Diagnostics;
 using MauiVirtualList.Controls;
 using MauiVirtualList.Enums;
 
@@ -7,6 +8,8 @@ namespace MauiVirtualList.Utils;
 internal class ShifleCacheController
 {
     internal ShifleCacheRules Rule {  get; set; }
+    internal double ScrollTop { get; set; }
+    internal double ScrollBottom { get; set; }
 
     internal bool Shifle(IList<VirtualItem> cachePool, IList itemsSource, double viewportWidth,
         ref int unsolvedCacheCount,
@@ -56,6 +59,12 @@ internal class ShifleCacheController
             first.LogicIndex = newIndex;
             first.Content.BindingContext = itemsSource[newIndex];
             first.OffsetY = pre.BottomLim + first.HardMeasure(viewportWidth, double.PositiveInfinity).Height;
+            
+            // TODO Возможно это лишнее действие
+            first.CachedPercentVis = CalcMethods.CalcVisiblePercent(first.OffsetY, first.BottomLim, ScrollTop, ScrollBottom).Percent;
+            if (first.CachedPercentVis > 0)
+                Debugger.Break();
+
             cachePool.Add(first);
             unsolvedCacheCount--;
             topCacheCount--;
@@ -74,6 +83,12 @@ internal class ShifleCacheController
             last.LogicIndex = pre.LogicIndex - 1;
             last.Content.BindingContext = itemsSource[last.LogicIndex];
             last.OffsetY = pre.OffsetY - last.HardMeasure(viewportWidth, double.PositiveInfinity).Height;
+            
+            // TODO Возможно это лишнее действие
+            last.CachedPercentVis = CalcMethods.CalcVisiblePercent(last.OffsetY, last.BottomLim, ScrollTop, ScrollBottom).Percent;
+            if (last.CachedPercentVis > 0)
+                Debugger.Break();
+
             cachePool.Insert(0, last);
             unsolvedCacheCount--;
             bottomCacheCount--;

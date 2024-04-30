@@ -8,8 +8,6 @@ namespace MauiVirtualList.Controls;
 [DebuggerDisplay("Index: {LogicIndex}; OffsetY: {OffsetY}; Vis: {CachedPercentVis}")]
 public class VirtualItem : Layout, ILayoutManager
 {
-    //private Size? _drawedSize;
-
     public VirtualItem(View content)
     {
         Content = content;
@@ -37,11 +35,6 @@ public class VirtualItem : Layout, ILayoutManager
     public bool IsCacheTop { get; set; }
     public bool IsCacheBottom { get; set; }
     public bool IsCache => IsCacheTop || IsCacheBottom;
-
-    /// <summary>
-    /// Индекс, по которому хранится данный элемент в <see cref="Body._cachePool"/>
-    /// </summary>
-    //public int PoolIndex { get; set; }
 
     public Size DrawedSize => DesiredSize;
 
@@ -73,5 +66,6 @@ public class VirtualItem : Layout, ILayoutManager
     {
         LogicIndex = newLogicalIndex;
         Content.BindingContext = source[newLogicalIndex];
+        DesiredSize = Size.Zero;
     }
 }

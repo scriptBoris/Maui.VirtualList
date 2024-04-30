@@ -8,4 +8,9 @@ public class User
     public string LastName { get; set; }
     public string PhotoUrl { get; set; }
     public string ShortBio { get; set; }
+
+    public override string ToString()
+    {
+        return $"[id:{Id}] #{Number} {FirstName} {LastName}";
+    }
 }
