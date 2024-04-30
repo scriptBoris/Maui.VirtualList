@@ -44,9 +44,9 @@ public class VirtualItem : Layout, ILayoutManager
 
     public Size ArrangeChildren(Rect bounds)
     {
-        var res = Content.HardArrange(bounds);
+        Content.HardArrange(bounds);
         //Debug.WriteLine($"ITEM ARRANGE CHILDREN: {res}");
-        return res;
+        return bounds.Size;
     }
 
     public Size Measure(double widthConstraint, double heightConstraint)
