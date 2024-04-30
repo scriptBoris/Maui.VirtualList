@@ -1,19 +1,19 @@
-﻿using Microsoft.Maui.Layouts;
-using System.Collections;
-using MauiVirtualList.Enums;
+﻿using System.Collections;
 using System.Collections.ObjectModel;
-using MauiVirtualList.Utils;
 using System.Diagnostics;
+using Microsoft.Maui.Layouts;
+using MauiVirtualList.Enums;
+using MauiVirtualList.Utils;
 using MauiVirtualList.Structs;
 
 namespace MauiVirtualList.Controls;
 
 public class Body : Layout, ILayoutManager
 {
+    private readonly ShifleCacheController _shifleController = new();
     private readonly List<VirtualItem> _cachePool = [];
     private readonly DataTemplate _defaultItemTemplate = new(() => new Label { Text = "NO_TEMPLATE" });
     private double _scrollY;
-    private double _scrollY_Old;
 
     #region props
     // items source
@@ -67,13 +67,6 @@ public class Body : Layout, ILayoutManager
         {
             Children.Clear();
             _cachePool.Clear();
-
-            //// init tracking
-            //if (ItemsSource != null)
-            //{
-            //    _trackingItem = BuildCell(0);
-            //    _trackingItem.HardMeasure(vp_width, double.PositiveInfinity);
-            //}
         }
 
         ViewPortWidth = vp_width;
@@ -83,7 +76,6 @@ public class Body : Layout, ILayoutManager
 
     public void Scrolled(double scrolledY, double vp_width, double vp_height)
     {
-        _scrollY_Old = _scrollY;
         _scrollY = scrolledY;
         ViewPortWidth = vp_width;
         ViewPortHeight = vp_height;
@@ -97,36 +89,240 @@ public class Body : Layout, ILayoutManager
         if (ItemsSource == null)
             return;
 
-        //bool isRedrawed = false;
-        //double oldAvg = AvgHeight;
-        //AvgHeight = CalcAvg();
-
-        //if (oldAvg != AvgHeight)
-        //{
-        //    this.HardInvalidateMeasure();
-        //    isRedrawed = true;
-        //}
-
-        //if (!isRedrawed)
-        //{
-        //    this.HardArrange(new Rect(0, 0, Width, Height));
-        //    this.HardInvalidateArrange();
-        //    this.HardInvalidateMeasure();
-        //}
-
         ArrangeChildren(new Rect(0, 0, vp_width, Height));
     }
 
     public Size ArrangeChildren(Rect bounds)
     {
-        int topCacheCount = 0;
-        int bottomCacheCount = 0;
-        int cacheCount = 0;
-        int middleOffsetStart = 0;
-        int middleOffsetEnd = _cachePool.Count != 0 ? _cachePool.Count - 1 : 0;
-        VirtualItem? middleStart = null;
+        if (ItemsSource == null || ViewPortWidth <= 0 || ViewPortHeight <= 0)
+            return bounds.Size;
 
+        // 1: find caches
+        Caches(out VirtualItem? middleStart,
+               out int middleOffsetStart, // наверное это не нужно
+               out int middleOffsetEnd,   // и это
+               out int cacheCount, 
+               out int topCacheCount, 
+               out int bottomCacheCount);
+
+        // 2: resolve ViewPort cache pool (middle)
+        // Рассчет заполненности вьюпорта элементами.
+        // Данный алгоритм "смотрит вниз"
+        var anchor = middleStart;
+        double freeViewPort = ViewPortHeight;
+        double newOffsetY = anchor?.OffsetY ?? _scrollY;
+        int indexPool = middleStart != null ? _cachePool.IndexOf(middleStart) : 0;
+        int indexSource = anchor?.LogicIndex ?? CalcMethods.CalcIndexByY(_scrollY, EstimatedHeight, ItemsSource.Count);
+        while (true)
+        {
+            VirtualItem cell;
+            if (indexPool <= _cachePool.Count - 1)
+            {
+                cell = _cachePool[indexPool];
+            }
+            else if (indexPool <= ItemsSource.Count - 1)
+            {
+                if (indexSource > ItemsSource.Count - 1)
+                    break;
+
+                // Слишком много кэша, что то пошло не так :(
+                if (_cachePool.Count > 30)
+                    Debugger.Break();
+
+                cell = BuildCell(indexSource);
+                anchor ??= cell;
+            }
+            else
+            {
+                break;
+            }
+
+            double cellHeight;
+            if (cell.DesiredSize.IsZero)
+                cellHeight = cell.HardMeasure(ViewPortWidth, double.PositiveInfinity).Height;
+            else
+                cellHeight = cell.DesiredSize.Height;
+
+            cell.OffsetY = newOffsetY;
+            newOffsetY += cellHeight;
+
+            var visiblePercent = CalcMethods.CalcVisiblePercent(cell.OffsetY, cell.BottomLim, _scrollY, ViewPortBottomLim);
+            cell.CachedPercentVis = visiblePercent.Percent;
+
+            // check cache
+            // Если во вьюпорт попали кэш элементы, то 
+            // помечаем их, что они больше не КЭШе
+            if (cell.IsCache && cell.CachedPercentVis > 0)
+            {
+                if (cell.IsCacheTop)
+                {
+                    cell.IsCacheTop = false;
+                    topCacheCount--;
+                }
+                else
+                {
+                    cell.IsCacheBottom = false;
+                    bottomCacheCount--;
+                }
+
+                cacheCount--;
+
+                cell.Shift(indexSource, ItemsSource);
+
+                // recalc cache
+                cell.HardMeasure(ViewPortWidth, double.PositiveInfinity);
+                visiblePercent = CalcMethods.CalcVisiblePercent(cell.OffsetY, cell.BottomLim, _scrollY, ViewPortBottomLim);
+                cell.CachedPercentVis = visiblePercent.Percent;
+            }
+
+            double cellViewPortBusyHeight = cellHeight * visiblePercent.Percent;
+            freeViewPort -= cellViewPortBusyHeight;
+
+            if (freeViewPort.IsEquals(0.0, 0.001) || cellViewPortBusyHeight == 0)
+            {
+                Debug.WriteLine($"feeViewPort height :: {freeViewPort}");
+                break;
+            }
+
+            indexPool++;
+            indexSource++;
+        }
+
+        // 3: check "holes middle"
+        // (Нужен ли данный алгоритм?)
+        // Иногда бывает такое, что при прокрутке наверх, может не быть
+        // кэш элементов и алгоритм выше не может сбилдить новые элементы
+        // (т.к. алгоритм "смотрит вниз")
+        // 
+        // Данный блок "смотрит вверх" и если вьюпорт сверху имеет свободное
+        // пространство, то билдит новый элемент (TODO или берет из кэша)
+        while (!freeViewPort.IsEquals(0.0, 0.001))
+        {
+            if (anchor == null)
+                break;
+
+            var holeSize = CalcMethods.ChekHoleTop(_scrollY, ViewPortBottomLim, anchor);
+            if (holeSize > 0)
+            {
+                int index = anchor.LogicIndex - 1;
+                int insert = _cachePool.IndexOf(anchor) - 1;
+                var cell = BuildCell(index, insert);
+                cell.HardMeasure(ViewPortWidth, double.PositiveInfinity);
+
+                cell.OffsetY = anchor.OffsetY - cell.DrawedSize.Height;
+                anchor = cell;
+            }
+            else
+            {
+                break;
+            }
+        }
+
+        // Индекс логического элемента, который первый сверху вьюпорта
+        //int middleLogicIndexStart = anchor?.LogicIndex ?? 0;
+
+        // Индекс логического элемента, который последний снизу вьюпорта
+        //int middleLogicIndexEnd = indexSource;
+
+        // 3.1: recalc caches
+        // После мидла, может оказаться так, что верхний кэш будет внизу
+        // или нижний кэш будет наверху.
+        // Поэтому пересчитываем КЭШи, для надежности
+        CalcMethods.RecalcCache(_cachePool, _scrollY, ViewPortBottomLim,
+            out int middleLogicIndexStart,
+            out int middleLogicIndexEnd,
+            out cacheCount,
+            out topCacheCount,
+            out bottomCacheCount);
+
+        // 4: shifle cache
+        // Алгоритм распределяет верхний и нижний кэш поровну
+        int unsolvedCacheCount = cacheCount;
+        var rule = ShifleCacheRules.Default;
+        if (middleLogicIndexStart == 0)
+            rule = ShifleCacheRules.NoCacheTop;
+        else if (middleLogicIndexEnd == ItemsSource.Count - 1)
+            rule = ShifleCacheRules.NoCacheBottom;
+
+        _shifleController.Rule = rule;
+        while (true)
+        {
+            bool isEnough = _shifleController.Shifle(_cachePool, ItemsSource, ViewPortWidth,
+                ref unsolvedCacheCount,
+                ref topCacheCount,
+                ref bottomCacheCount);
+
+            if (isEnough)
+                break;
+        }
+
+        // 5: IndexLogic error correction
+        // Проходимся по всем элементам, если находим ошибки непоследовательности
+        // фиксим их
+        if (_cachePool.Count > 0)
+        {
+            int indexCorection = _cachePool.First().LogicIndex + 1;
+            for (int i = 1; i < _cachePool.Count; i++)
+            {
+                var cell = _cachePool[i];
+                if (cell.LogicIndex != indexCorection)
+                {
+                    cell.Shift(indexCorection, ItemsSource);
+                    cell.HardMeasure(ViewPortWidth, double.PositiveInfinity);
+                }
+                indexCorection++;
+            }
+        }
+
+        // Собственно, рисуем наш cachepool
+        Draw(bounds);
+
+        // Если размер avg изменился, то изменяем размер тела прокрутки (body)
+        // (сомнительно, но-о-о окэ-э-э-й)
+        if (AvgCellHeight <= 0)
+        {
+            AvgCellHeight = CalcAverageCellHeight();
+            if (this is IView selfs)
+                selfs.InvalidateMeasure();
+        }
+
+        return bounds.Size;
+    }
+
+    public Size Measure(double widthConstraint, double heightConstraint)
+    {
+        foreach (var item in Children)
+            item.Measure(widthConstraint, heightConstraint);
+
+        AvgCellHeight = CalcAverageCellHeight();
+        double height = Cunt * AvgCellHeight;
+        if (height <= 0)
+            height = 200;
+
+        return new Size(widthConstraint, height);
+    }
+
+    protected override ILayoutManager CreateLayoutManager()
+    {
+        return this;
+    }
+
+    private void Caches(out VirtualItem? middleStart, 
+        out int middleOffsetStart, 
+        out int middleOffsetEnd,
+        out int cacheCount, 
+        out int topCacheCount,
+        out int bottomCacheCount)
+    {
+        // 1: find caches
         // find top cache
+        middleStart = null;
+        cacheCount = 0;
+        middleOffsetStart = 0;
+        middleOffsetEnd = _cachePool.Count != 0 ? _cachePool.Count - 1 : 0;
+        topCacheCount = 0;
+        bottomCacheCount = 0;
+
         for (int i = 0; i < _cachePool.Count; i++)
         {
             var cell = _cachePool[i];
@@ -174,141 +370,11 @@ public class Body : Layout, ILayoutManager
                     goto endBottomCache;
             }
         }
-    endBottomCache:
+    endBottomCache:;
+    }
 
-        // resolve ViewPort cache pool (middle)
-        var anchor = middleStart;
-        double freeViewPort = ViewPortHeight;
-        double newOffsetY = anchor?.OffsetY ?? _scrollY;
-        int indexPool = middleStart != null ? _cachePool.IndexOf(middleStart) : 0;
-        int indexSource = anchor?.LogicIndex ?? CalcMethods.CalcIndexByY(_scrollY, EstimatedHeight, ItemsSource.Count);
-        while (true)
-        {
-            VirtualItem cell;
-            if (indexPool <= _cachePool.Count - 1)
-            {
-                cell = _cachePool[indexPool];
-            }
-            else if (indexPool <= ItemsSource.Count - 1)
-            {
-                if (indexSource > ItemsSource.Count - 1)
-                    break;
-
-                if (_cachePool.Count > 30)
-                    Debugger.Break();
-
-                try
-                {
-                    cell = BuildCell(indexSource);
-                }
-                catch (Exception ex)
-                {
-                    Debugger.Break();
-                    throw;
-                }
-            }
-            else
-            {
-                break;
-            }
-
-            double cellHeight;
-            if (cell.DesiredSize.IsZero)
-                cellHeight = cell.HardMeasure(ViewPortWidth, double.PositiveInfinity).Height;
-            else
-                cellHeight = cell.DesiredSize.Height;
-
-            cell.OffsetY = newOffsetY;
-            newOffsetY += cellHeight;
-
-            var visiblePercent = CalcMethods.CalcVisiblePercent(cell.OffsetY, cell.BottomLim, _scrollY, ViewPortBottomLim);
-            cell.CachedPercentVis = visiblePercent.Percent;
-
-            // check cache
-            if (cell.IsCache && cell.CachedPercentVis > 0)
-            {
-                if (cell.IsCacheTop)
-                {
-                    cell.IsCacheTop = false;
-                    topCacheCount--;
-                }
-                else
-                {
-                    cell.IsCacheBottom = false;
-                    bottomCacheCount--;
-                }
-
-                cacheCount--;
-
-                cell.Shift(indexSource, ItemsSource);
-
-                // recalc cache
-                cell.HardMeasure(ViewPortWidth, double.PositiveInfinity);
-                visiblePercent = CalcMethods.CalcVisiblePercent(cell.OffsetY, cell.BottomLim, _scrollY, ViewPortBottomLim);
-                cell.CachedPercentVis = visiblePercent.Percent;
-            }
-
-            double cellViewPortBusyHeight = cellHeight * visiblePercent.Percent;
-            freeViewPort -= cellViewPortBusyHeight;
-
-            if (freeViewPort.IsEquals(0.0, 0.001) || cellViewPortBusyHeight == 0)
-            {
-                Debug.WriteLine($"feeViewPort height :: {freeViewPort}");
-                break;
-            }
-
-            indexPool++;
-            indexSource++;
-        }
-
-        // shifle cache
-        int unsolvedCacheCount = cacheCount;
-        while (true)
-        {
-            if (unsolvedCacheCount <= 1)
-                break;
-
-            int delta = Math.Abs(topCacheCount - bottomCacheCount);
-            if (delta <= 1)
-                break;
-
-            // Из начала в конец
-            if (topCacheCount > bottomCacheCount)
-            {
-                var pre = _cachePool.Last();
-                int newIndex = pre.LogicIndex + 1;
-                if (newIndex > ItemsSource.Count - 1)
-                    break;
-
-                var first = _cachePool.First();
-                _cachePool.Remove(first);
-                first.LogicIndex = newIndex;
-                first.Content.BindingContext = ItemsSource[newIndex];
-                first.OffsetY = pre.BottomLim + first.HardMeasure(ViewPortWidth, double.PositiveInfinity).Height;
-                _cachePool.Add(first);
-                unsolvedCacheCount--;
-                topCacheCount--;
-                bottomCacheCount++;
-            }
-            // Из конца в начало
-            else if (bottomCacheCount > topCacheCount)
-            {
-                if (_cachePool.First().LogicIndex == 0)
-                    break;
-
-                var last = _cachePool.Last();
-                _cachePool.Remove(last);
-                var pre = _cachePool.First();
-                last.LogicIndex = pre.LogicIndex - 1;
-                last.Content.BindingContext = ItemsSource[last.LogicIndex];
-                last.OffsetY = pre.OffsetY - last.HardMeasure(ViewPortWidth, double.PositiveInfinity).Height;
-                _cachePool.Insert(0, last);
-                unsolvedCacheCount--;
-                bottomCacheCount--;
-                topCacheCount++;
-            }
-        }
-
+    private void Draw(Rect bounds)
+    {
         // DRAW FOR FIRST
         var firstDraw = _cachePool.FirstOrDefault();
         if (firstDraw != null && firstDraw.LogicIndex == 0)
@@ -323,7 +389,7 @@ public class Body : Layout, ILayoutManager
                 item.OffsetY = restartY;
                 restartY += item.DrawedSize.Height;
             }
-            goto end;
+            return;
         }
 
         // DRAW FOR LAST
@@ -336,7 +402,7 @@ public class Body : Layout, ILayoutManager
                 var item = _cachePool[i];
                 double y = restartY - item.DrawedSize.Height;
                 var r = new Rect(
-                    x: 0,
+                x: 0,
                     y: y,
                     width: bounds.Width,
                     height: item.DrawedSize.Height);
@@ -346,7 +412,7 @@ public class Body : Layout, ILayoutManager
                 item.OffsetY = y;
                 restartY -= item.DrawedSize.Height;
             }
-            goto end;
+            return;
         }
 
         // DRAW FOR MIDDLE
@@ -360,37 +426,9 @@ public class Body : Layout, ILayoutManager
             item.OffsetY = syncY;
             syncY += item.DrawedSize.Height;
         }
-
-    end:
-        if (AvgCellHeight <= 0)
-        {
-            AvgCellHeight = CalcAverageCellHeight();
-            if (this is IView selfs)
-                selfs.InvalidateMeasure();
-        }
-
-        return bounds.Size;
     }
 
-    public Size Measure(double widthConstraint, double heightConstraint)
-    {
-        foreach (var item in Children)
-            item.Measure(widthConstraint, heightConstraint);
-
-        AvgCellHeight = CalcAverageCellHeight();
-        double height = Cunt * AvgCellHeight;
-        if (height <= 0)
-            height = 200;
-
-        return new Size(widthConstraint, height);
-    }
-
-    protected override ILayoutManager CreateLayoutManager()
-    {
-        return this;
-    }
-
-    private VirtualItem BuildCell(int logicIndex)
+    private VirtualItem BuildCell(int logicIndex, int? insertIndex = null)
     {
         var template = ItemTemplate ?? _defaultItemTemplate;
         var userView = template.LoadTemplate() as View;
@@ -402,7 +440,20 @@ public class Body : Layout, ILayoutManager
         {
             LogicIndex = logicIndex,
         };
-        _cachePool.Add(cell);
+
+        if (insertIndex == null)
+        {
+            _cachePool.Add(cell);
+        }
+        else
+        {
+            int insrt = insertIndex.Value;
+            if (insrt < 0)
+                insrt = 0;
+
+            _cachePool.Insert(insrt, cell);
+        }
+
         Children.Add(cell);
 
         return cell;

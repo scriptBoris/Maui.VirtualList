@@ -6,7 +6,7 @@ namespace MauiVirtualList.Utils;
 
 internal static class CalcMethods
 {
-    public static VisibleTypes IsOut(VirtualItem view, double yViewPort, double heightViewPort)
+    internal static VisibleTypes IsOut(VirtualItem view, double yViewPort, double heightViewPort)
     {
         double viewPortBottomLimit = yViewPort + heightViewPort;
 
@@ -19,7 +19,7 @@ internal static class CalcMethods
         return VisibleTypes.Visible;
     }
 
-    public static int CalcIndexByY(double y, double scrollSize, int totalItems)
+    internal static int CalcIndexByY(double y, double scrollSize, int totalItems)
     {
         if (y <= 0)
         {
@@ -38,50 +38,28 @@ internal static class CalcMethods
         }
     }
 
-    public static int CountZeroes(int number)
+    internal static double ChekHoleTop(double viewPortTop, double viewPortBottom, VirtualItem item)
     {
-        if (number == 0)
-        {
-            return 1; // Если число равно нулю, то у него один ноль
-        }
+        if (item.BottomLim < viewPortTop)
+            return 0;
 
-        int count = 0;
+        if (item.OffsetY > viewPortBottom)
+            return 0;
 
-        while (number != 0)
-        {
-            // Получаем последнюю цифру числа
-            int digit = number % 10;
-
-            // Если цифра равна нулю, увеличиваем счетчик
-            if (digit == 0)
-            {
-                count++;
-            }
-
-            // Удаляем последнюю цифру числа
-            number /= 10;
-        }
-
-        return count;
+        double topDif = viewPortTop - item.OffsetY;
+        if (topDif < 0)
+            return -topDif;
+        else
+            return 0;
     }
 
-    public static OutResult CalcVisiblePercent(double elementTop, double elementBottom, double viewportTop, double viewportBottom)
+    internal static OutResult CalcVisiblePercent(double elementTop, double elementBottom, double viewportTop, double viewportBottom)
     {
         if (elementBottom < viewportTop)
             return new OutResult(VisibleTypes.Starter);
 
         if (elementTop > viewportBottom)
             return new OutResult(VisibleTypes.Ender);
-
-        //if (elementBottom <= viewportTop)
-        //    return new OutResult(VisibleTypes.Ender);
-
-        //if (elementTop >= viewportBottom)
-        //    return new OutResult(VisibleTypes.Starter);
-
-        // Если элемент вышел за область видимости, возвращаем 0
-        //if (elementBottom <= viewportTop || elementTop >= viewportBottom)
-        //    return 0;
 
         // Пересекается ли элемент с viewport'ом
         double visibleTop = Math.Max(elementTop, viewportTop);
@@ -98,5 +76,57 @@ internal static class CalcMethods
         // Вычисляем процент отображения
         double visiblePercentage = (visibleHeight / elementHeight)/* * 100*/;
         return new OutResult(visiblePercentage);
+    }
+
+    internal static void RecalcCache(IList<VirtualItem> cachepool, double viewportTop, double viewportBottom,
+        out int middleLogicIndexStart,
+        out int middleLogicIndexEnd,
+        out int cacheCount,
+        out int topCacheCount,
+        out int bottomCacheCount)
+    {
+        middleLogicIndexStart = 0;
+        middleLogicIndexEnd = 0;
+        cacheCount = 0; 
+        topCacheCount = 0;
+        bottomCacheCount = 0;
+        
+        // find top cache
+        for (int i = 0; i < cachepool.Count; i++)
+        {
+            var cell = cachepool[i];
+            var vis = CalcMethods
+                .CalcVisiblePercent(cell.OffsetY, cell.BottomLim, viewportTop, viewportBottom);
+            cell.CachedPercentVis = vis.Percent;
+            if (vis.Percent == 0)
+            {
+                cacheCount++;
+                topCacheCount++;
+            }
+            else
+            {
+                middleLogicIndexStart = cell.LogicIndex;
+                break;
+            }
+        }
+
+        // find bottom cache
+        for (int i = cachepool.Count - 1; i >= 0; i--)
+        {
+            var cell = cachepool[i];
+            var vis = CalcMethods
+                .CalcVisiblePercent(cell.OffsetY, cell.BottomLim, viewportTop, viewportBottom);
+            cell.CachedPercentVis = vis.Percent;
+            if (vis.Percent == 0)
+            {
+                cacheCount++;
+                bottomCacheCount++;
+            }
+            else
+            {
+                middleLogicIndexEnd = cell.LogicIndex;
+                break;
+            }
+        }
     }
 }

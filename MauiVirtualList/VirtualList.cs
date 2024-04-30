@@ -5,8 +5,8 @@ using MauiVirtualList.Controls;
 namespace MauiVirtualList;
 
 public class VirtualList : 
-    ScrollViewTest 
-    //ScrollView
+    //ScrollViewTest 
+    ScrollView
 {
     private readonly Body _body = new();
 
