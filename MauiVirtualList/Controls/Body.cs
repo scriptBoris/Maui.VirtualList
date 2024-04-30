@@ -104,7 +104,7 @@ public class Body : Layout, ILayoutManager
             return bounds.Size;
 
         // 1: find caches
-        Caches(out VirtualItem? middleStart,
+        SearchCaches(out VirtualItem? middleStart,
                out int middleOffsetStart, // наверное это не нужно
                out int middleOffsetEnd,   // и это
                out int cacheCount, 
@@ -122,6 +122,7 @@ public class Body : Layout, ILayoutManager
         while (true)
         {
             VirtualItem cell;
+
             if (indexPool <= _cachePool.Count - 1)
             {
                 cell = _cachePool[indexPool];
@@ -137,9 +138,9 @@ public class Body : Layout, ILayoutManager
 
                 if (topCacheCount > 1)
                 {
-                    // todo отладить, шифт без перемещения в пуле
                     cell = _cachePool.First();
-                    cell.Shift(indexSource, ItemsSource);
+                    _cachePool.Remove(cell);
+                    _cachePool.Add(cell);
                 }
                 else
                 {
@@ -152,23 +153,10 @@ public class Body : Layout, ILayoutManager
                 break;
             }
 
-            double cellHeight;
-            if (cell.DesiredSize.IsZero)
-                cellHeight = cell.HardMeasure(ViewPortWidth, double.PositiveInfinity).Height;
-            else
-                cellHeight = cell.DesiredSize.Height;
-
-            cell.OffsetY = newOffsetY;
-            newOffsetY += cellHeight;
-
-            var visiblePercent = CalcMethods.CalcVisiblePercent(cell.OffsetY, cell.BottomLim, _scrollY, ViewPortBottomLim);
-            cell.CachedPercentVis = visiblePercent.Percent;
-
             // check cache
             // Если во вьюпорт попали кэш элементы, то 
-            // помечаем их, что они больше не КЭШе
-            // TODO странный участок кода, можно укомпановать отрефакторить
-            if (cell.IsCache && cell.CachedPercentVis > 0)
+            // помечаем их, что они больше не в КЭШе
+            if (cell.IsCache)
             {
                 if (cell.IsCacheTop)
                 {
@@ -182,14 +170,20 @@ public class Body : Layout, ILayoutManager
                 }
 
                 cacheCount--;
-
                 cell.Shift(indexSource, ItemsSource);
-
-                // recalc cache
-                cell.HardMeasure(ViewPortWidth, double.PositiveInfinity);
-                visiblePercent = CalcMethods.CalcVisiblePercent(cell.OffsetY, cell.BottomLim, _scrollY, ViewPortBottomLim);
-                cell.CachedPercentVis = visiblePercent.Percent;
             }
+
+            double cellHeight;
+            if (cell.DesiredSize.IsZero)
+                cellHeight = cell.HardMeasure(ViewPortWidth, double.PositiveInfinity).Height;
+            else
+                cellHeight = cell.DesiredSize.Height;
+
+            cell.OffsetY = newOffsetY;
+            newOffsetY += cellHeight;
+
+            var visiblePercent = CalcMethods.CalcVisiblePercent(cell.OffsetY, cell.BottomLim, _scrollY, ViewPortBottomLim);
+            cell.CachedPercentVis = visiblePercent.Percent;
 
             double cellViewPortBusyHeight = cellHeight * visiblePercent.Percent;
             freeViewPort -= cellViewPortBusyHeight;
@@ -247,12 +241,6 @@ public class Body : Layout, ILayoutManager
                 break;
             }
         }
-
-        // Индекс логического элемента, который первый сверху вьюпорта
-        //int middleLogicIndexStart = anchor?.LogicIndex ?? 0;
-
-        // Индекс логического элемента, который последний снизу вьюпорта
-        //int middleLogicIndexEnd = indexSource;
 
         // 3.1: recalc caches
         // После мидла, может оказаться так, что верхний кэш будет внизу
@@ -366,7 +354,7 @@ public class Body : Layout, ILayoutManager
         return this;
     }
 
-    private void Caches(out VirtualItem? middleStart, 
+    private void SearchCaches(out VirtualItem? middleStart, 
         out int middleOffsetStart, 
         out int middleOffsetEnd,
         out int cacheCount, 
@@ -442,10 +430,10 @@ public class Body : Layout, ILayoutManager
             foreach (var item in _cachePool)
             {
                 var r = new Rect(0, restartY, bounds.Width, item.DrawedSize.Height);
-                if (item is IView v)
-                    v.Arrange(r);
-
+                item.HardArrange(r);
                 item.OffsetY = restartY;
+                item.IsCacheTop = false;
+                item.IsCacheBottom = false;
                 restartY += item.DrawedSize.Height;
             }
             return;
@@ -465,10 +453,10 @@ public class Body : Layout, ILayoutManager
                     y: y,
                     width: bounds.Width,
                     height: item.DrawedSize.Height);
-                if (item is IView v)
-                    v.Arrange(r);
-
+                item.HardArrange(r);
                 item.OffsetY = y;
+                item.IsCacheTop = false;
+                item.IsCacheBottom = false;
                 restartY -= item.DrawedSize.Height;
             }
             return;
@@ -481,6 +469,8 @@ public class Body : Layout, ILayoutManager
             var r = new Rect(0, syncY, bounds.Width, item.DrawedSize.Height);
             item.HardArrange(r);
             item.OffsetY = syncY;
+            item.IsCacheTop = false;
+            item.IsCacheBottom = false;
             syncY += item.DrawedSize.Height;
         }
     }
