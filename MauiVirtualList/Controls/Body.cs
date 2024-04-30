@@ -5,6 +5,7 @@ using Microsoft.Maui.Layouts;
 using MauiVirtualList.Enums;
 using MauiVirtualList.Utils;
 using MauiVirtualList.Structs;
+using System.Collections.Specialized;
 
 namespace MauiVirtualList.Controls;
 
@@ -25,7 +26,15 @@ public class Body : Layout, ILayoutManager
         propertyChanged: (b, o, n) =>
         {
             if (b is Body self)
+            {
+                if (o is INotifyCollectionChanged old)
+                    old.CollectionChanged -= self.OnCollectionChanged;
+
+                if (n is INotifyCollectionChanged newest)
+                    newest.CollectionChanged += self.OnCollectionChanged;
+
                 self.Update(true, self.ViewPortWidth, self.ViewPortHeight);
+            }
         }
     );
     public IList? ItemsSource
@@ -504,6 +513,11 @@ public class Body : Layout, ILayoutManager
         Children.Add(cell);
 
         return cell;
+    }
+
+    private void OnCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
+    {
+        Scrolled(_scrollY, ViewPortWidth, ViewPortHeight);
     }
 
     private double CalcAverageCellHeight()

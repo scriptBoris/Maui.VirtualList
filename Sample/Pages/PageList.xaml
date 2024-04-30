@@ -20,6 +20,10 @@
         <ToolbarItem Clicked="ToolbarItem_Clicked_2"
                      Order="Secondary"
                      Text="Scroll end"/>
+
+        <ToolbarItem Clicked="ToolbarItem_Clicked_4"
+                     Order="Secondary"
+                     Text="New item"/>
     </ContentPage.ToolbarItems>
 
     <Grid RowDefinitions="*,200,*">
@@ -33,16 +37,23 @@
                            VerticalTextAlignment="Center"
                            BackgroundColor="{Binding Color}"
                            FontSize="20"
-                           Text="{Binding Number, StringFormat='HELLO WORLD! {0}'}"
-                           TextColor="White"/>
+                           TextColor="White">
+                        <Label.FormattedText>
+                            <FormattedString>
+                                <Span Text="{Binding Text}"/>
+                                <Span Text=" "/>
+                                <Span Text="{Binding Number}"/>
+                            </FormattedString>
+                        </Label.FormattedText>
+                    </Label>
                 </DataTemplate>
             </virtualList:VirtualList.ItemTemplate>
         </virtualList:VirtualList>
 
-        <Label Grid.Row="0"
-               BackgroundColor="#800020A0"/>
+        <BoxView Grid.Row="0"
+                 BackgroundColor="#800020A0"/>
 
-        <Label Grid.Row="2"
-               BackgroundColor="#800020A0"/>
+        <BoxView Grid.Row="2"
+                 BackgroundColor="#800020A0"/>
     </Grid>
 </ContentPage>

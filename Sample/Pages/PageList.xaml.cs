@@ -11,16 +11,17 @@ public partial class PageList
         var items = new ObservableCollection<ItemTest>();
         for (int i = 0; i < 50; i++)
         {
-            bool isEven = i % 2 == 0;
-
             items.Add(new ItemTest
             {
-                Color = isEven ? Colors.Black : Colors.DarkGray,
+                Text = "TEST ITEM",
                 Number = i + 1,
             });
         }
         list.ItemsSource = items;
+        Items = items;
     }
+
+    public ObservableCollection<ItemTest> Items { get; private set; }
 
     private void ToolbarItem_Clicked(object sender, EventArgs e)
     {
@@ -40,5 +41,40 @@ public partial class PageList
     private void ToolbarItem_Clicked_3(object sender, EventArgs e)
     {
         list.ScrollToAsync(0, 0, false);
+    }
+
+    private async void ToolbarItem_Clicked_4(object sender, EventArgs e)
+    {
+        var res = await this.DisplayPromptAsync("new item", "Typing index of insert", 
+            keyboard: Keyboard.Numeric,
+            placeholder: "-1 (as Add)");
+        if (res == null)
+            return;
+
+        int parse = -1;
+
+        if (!string.IsNullOrEmpty(res))
+        {
+            if (!int.TryParse(res, out parse))
+            {
+                await this.DisplayAlert("Error", "Bad input data", "OK");
+                return;
+            }
+        }
+
+        int insert = parse;
+        if (parse == -1 || parse > Items.Count)
+            insert = Items.Count;
+
+        Items.Insert(insert, new ItemTest
+        {
+            Text = "NEW ITEM",
+            Number = insert + 1,
+        });
+
+        for (int i = insert; i < Items.Count; i++)
+        {
+            Items[i].Number = i + 1;
+        }
     }
 }
