@@ -7,27 +7,31 @@
              Title="Virtual list">
 
     <ContentPage.ToolbarItems>
-        <ToolbarItem Clicked="ToolbarItem_Clicked"
+        <ToolbarItem Clicked="ToolbarItem_Scroll200"
                      Text="Scroll +200"/>
 
-        <ToolbarItem Clicked="ToolbarItem_Clicked_1"
+        <ToolbarItem Clicked="ToolbarItem_Scroll10"
                      Text="Scroll +10"/>
 
-        <ToolbarItem Clicked="ToolbarItem_Clicked_3"
+        <ToolbarItem Clicked="ToolbarItem_ScrollToStart"
                      Order="Secondary"
                      Text="Scroll start"/>
 
-        <ToolbarItem Clicked="ToolbarItem_Clicked_2"
+        <ToolbarItem Clicked="ToolbarItem_ScrollToEnd"
                      Order="Secondary"
                      Text="Scroll end"/>
 
-        <ToolbarItem Clicked="ToolbarItem_Clicked_4"
+        <ToolbarItem Clicked="ToolbarItem_NewItem"
                      Order="Secondary"
                      Text="New item"/>
 
-        <ToolbarItem Clicked="ToolbarItem_Clicked_5"
+        <ToolbarItem Clicked="ToolbarItem_RemoveItem"
                      Order="Secondary"
                      Text="Remove item"/>
+
+        <ToolbarItem Clicked="ToolbarItem_ClearItems"
+                     Order="Secondary"
+                     Text="Claer items"/>
     </ContentPage.ToolbarItems>
 
     <Grid RowDefinitions="*,300,*">

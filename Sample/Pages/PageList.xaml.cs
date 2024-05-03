@@ -24,27 +24,27 @@ public partial class PageList
 
     public ObservableCollection<ItemTest> Items { get; private set; }
 
-    private void ToolbarItem_Clicked(object sender, EventArgs e)
+    private void ToolbarItem_Scroll200(object sender, EventArgs e)
     {
         list.ScrollToAsync(0, list.ScrollY + 200, false);
     }
 
-    private void ToolbarItem_Clicked_1(object sender, EventArgs e)
+    private void ToolbarItem_Scroll10(object sender, EventArgs e)
     {
         list.ScrollToAsync(0, list.ScrollY + 10, false);
     }
 
-    private void ToolbarItem_Clicked_2(object sender, EventArgs e)
+    private void ToolbarItem_ScrollToEnd(object sender, EventArgs e)
     {
         list.ScrollToAsync(0, list.ContentSize.Height, false);
     }
 
-    private void ToolbarItem_Clicked_3(object sender, EventArgs e)
+    private void ToolbarItem_ScrollToStart(object sender, EventArgs e)
     {
         list.ScrollToAsync(0, 0, false);
     }
 
-    private async void ToolbarItem_Clicked_4(object sender, EventArgs e)
+    private async void ToolbarItem_NewItem(object sender, EventArgs e)
     {
         var res = await this.DisplayPromptAsync("new item", "Typing index of insert", 
             keyboard: Keyboard.Numeric,
@@ -81,7 +81,7 @@ public partial class PageList
         await list.ScrollToAsync(insert, animate: true);
     }
 
-    private async void ToolbarItem_Clicked_5(object sender, EventArgs e)
+    private async void ToolbarItem_RemoveItem(object sender, EventArgs e)
     {
         var res = await this.DisplayPromptAsync("remove item", "Typing index of remove",
             keyboard: Keyboard.Numeric,
@@ -110,5 +110,10 @@ public partial class PageList
         {
             Items[i].Number = i + 1;
         }
+    }
+
+    private void ToolbarItem_ClearItems(object sender, EventArgs e)
+    {
+        Items.Clear();
     }
 }
