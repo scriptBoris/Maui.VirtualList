@@ -1,20 +1,19 @@
 ﻿using Sample.Models;
-using Sample.Utils;
 using System.Collections.ObjectModel;
 
 namespace Sample.Pages;
 
-public partial class PageList
+public partial class PageListMaui
 {
-    public PageList(int count)
+    public PageListMaui()
     {
         InitializeComponent();
         var items = new ObservableCollection<ItemTest>();
-        for (int i = 0; i < count; i++)
+        for (int i = 0; i < 50; i++)
         {
             items.Add(new ItemTest
             {
-                Text = $"{RandomNameGenerator.GenerateRandomMaleFirstName()} {RandomNameGenerator.GenerateRandomLastName()}",
+                Text = "TEST ITEM",
                 Number = i + 1,
             });
         }
@@ -26,22 +25,23 @@ public partial class PageList
 
     private void ToolbarItem_Clicked(object sender, EventArgs e)
     {
-        list.ScrollToAsync(0, list.ScrollY + 200, false);
+        //list.ScrollToAsync(0, list.ScrollY + 200, false);
     }
 
     private void ToolbarItem_Clicked_1(object sender, EventArgs e)
     {
-        list.ScrollToAsync(0, list.ScrollY + 10, false);
+        //list.ScrollToAsync(0, list.ScrollY + 10, false);
     }
 
     private void ToolbarItem_Clicked_2(object sender, EventArgs e)
     {
-        list.ScrollToAsync(0, list.ContentSize.Height, false);
+        //list.ScrollToAsync(0, list.ContentSize.Height, false);
+        list.ScrollTo(Items.Count - 1, animate:false);
     }
 
     private void ToolbarItem_Clicked_3(object sender, EventArgs e)
     {
-        list.ScrollToAsync(0, 0, false);
+        list.ScrollTo(0, animate:false);
     }
 
     private async void ToolbarItem_Clicked_4(object sender, EventArgs e)
@@ -78,7 +78,7 @@ public partial class PageList
             Items[i].Number = i + 1;
         }
 
-        await list.ScrollToAsync(insert, animate: true);
+        list.ScrollTo(insert, animate:false);
     }
 
     private async void ToolbarItem_Clicked_5(object sender, EventArgs e)

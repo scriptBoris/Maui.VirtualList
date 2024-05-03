@@ -19,21 +19,39 @@ internal static class CalcMethods
         return VisibleTypes.Visible;
     }
 
-    internal static int CalcIndexByY(double y, double scrollSize, int totalItems)
+    internal static int CalcIndexByY(double y, double scrollFullSize, int totalItems)
     {
         if (y <= 0)
         {
             return 0;
         }
-        else if (y >= scrollSize)
+        else if (y >= scrollFullSize)
         {
             return totalItems;
         }
         else
         {
-            double per = (y / scrollSize);
+            double per = (y / scrollFullSize);
             double t = (double)totalItems * per;
             int res = (int)t;
+            return res;
+        }
+    }
+
+    internal static double CalcYByIndex(double index, double scrollFullSize, int totalItems)
+    {
+        if (index <= 0)
+        {
+            return 0;
+        }
+        else if (index >= totalItems - 1)
+        {
+            return scrollFullSize;
+        }
+        else
+        {
+            double per = index / totalItems;
+            double res = scrollFullSize * per;
             return res;
         }
     }
@@ -90,6 +108,7 @@ internal static class CalcMethods
         cacheCount = 0; 
         topCacheCount = 0;
         bottomCacheCount = 0;
+        
         
         // find top cache
         for (int i = 0; i < cachepool.Count; i++)

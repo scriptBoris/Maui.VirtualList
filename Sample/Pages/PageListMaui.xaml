@@ -3,7 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:models="clr-namespace:Sample.Models"
              xmlns:virtualList="clr-namespace:MauiVirtualList;assembly=MauiVirtualList"
-             x:Class="Sample.Pages.PageList"
+             x:Class="Sample.Pages.PageListMaui"
              Title="Virtual list">
 
     <ContentPage.ToolbarItems>
@@ -31,11 +31,11 @@
     </ContentPage.ToolbarItems>
 
     <Grid RowDefinitions="*,300,*">
-        <virtualList:VirtualList x:Name="list"
-                                 Grid.Row="1"
-                                 VerticalOptions="Center"
-                                 BackgroundColor="Red">
-            <virtualList:VirtualList.ItemTemplate>
+        <CollectionView x:Name="list"
+                        Grid.Row="1"
+                        VerticalOptions="Center"
+                        BackgroundColor="Red">
+            <CollectionView.ItemTemplate>
                 <DataTemplate x:DataType="models:ItemTest">
                     <Label HeightRequest="80"
                            Padding="20,0"
@@ -45,16 +45,15 @@
                            TextColor="White">
                         <Label.FormattedText>
                             <FormattedString>
-                                <Span Text="#"/>
-                                <Span Text="{Binding Number}"/>
-                                <Span Text=" "/>
                                 <Span Text="{Binding Text}"/>
+                                <Span Text=" "/>
+                                <Span Text="{Binding Number}"/>
                             </FormattedString>
                         </Label.FormattedText>
                     </Label>
                 </DataTemplate>
-            </virtualList:VirtualList.ItemTemplate>
-        </virtualList:VirtualList>
+            </CollectionView.ItemTemplate>
+        </CollectionView>
 
         <BoxView Grid.Row="0"
                  BackgroundColor="#800020A0"/>

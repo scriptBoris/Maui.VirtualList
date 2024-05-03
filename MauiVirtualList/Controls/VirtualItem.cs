@@ -35,12 +35,10 @@ public class VirtualItem : Layout, ILayoutManager
     public bool IsCacheTop { get; set; }
     public bool IsCacheBottom { get; set; }
     public bool IsCache => IsCacheTop || IsCacheBottom;
-
     public Size DrawedSize => DesiredSize;
-
-    public string DBGINFO => Content.BindingContext.ToString()!;
-
     public double CachedPercentVis { get; set; } = -1;
+    public bool AwaitRecalcMeasure { get; private set; }
+    public string DBGINFO => Content.BindingContext.ToString()!;
 
     public Size ArrangeChildren(Rect bounds)
     {
@@ -53,6 +51,7 @@ public class VirtualItem : Layout, ILayoutManager
     {
         var size = Content.HardMeasure(widthConstraint, heightConstraint);
         DesiredSize = size;
+        AwaitRecalcMeasure = false;
         //Debug.WriteLine($"ITEM MEASURE: {size}");
         return size;
     }
@@ -67,5 +66,6 @@ public class VirtualItem : Layout, ILayoutManager
         LogicIndex = newLogicalIndex;
         Content.BindingContext = source[newLogicalIndex];
         DesiredSize = Size.Zero;
+        AwaitRecalcMeasure = true;
     }
 }

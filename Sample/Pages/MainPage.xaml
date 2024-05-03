@@ -5,8 +5,17 @@
              Title="Test virtual list"
              Padding="20">
     <StackLayout Spacing="10">
-        <Button Clicked="Button_Clicked"
-                Text="Open virtual list"/>
+        <Button Clicked="Button_ClickedTestList50"
+                Text="Open virtual list (50)"/>
+
+        <Button Clicked="Button_ClickedTestList2"
+                Text="Open virtual list (2)"/>
+
+        <Button Clicked="Button_ClickedTestList0"
+                Text="Open virtual list (0)"/>
+
+        <Button Clicked="Button_Clicked_4"
+                Text="Open virtual list (MAUI)"/>
 
         <Button Clicked="Button_Clicked_2"
                 Text="Open advanced virtual list"/>

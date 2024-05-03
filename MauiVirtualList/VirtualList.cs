@@ -47,10 +47,29 @@ public class VirtualList :
     }
     #endregion bindable props
 
+    internal double MeasureWidth { get; private set; } = 200;
+    internal double MeasureHeight { get; private set; } = 200;
+
     public Task ScrollToAsync(double percent, bool animated)
     {
         var h = _body.Height * percent;
         return base.ScrollToAsync(0, h, animated);
+    }
+
+    public async Task ScrollToAsync(int index, 
+        int groupIndex = -1,
+        ScrollToPosition position = ScrollToPosition.MakeVisible, 
+        bool animate = true)
+    {
+        double y = _body.GetYItem(index);
+        await Task.Delay(5);
+        await base.ScrollToAsync(0, y, animate);
+    }
+
+    public Task ScrollToAsync(object item, object group = null,
+        ScrollToPosition position = ScrollToPosition.MakeVisible, bool animate = true)
+    {
+        throw new NotImplementedException();
     }
 
     private void VirtualList_Scrolled(object? sender, ScrolledEventArgs e)
@@ -63,6 +82,8 @@ public class VirtualList :
     {
         _body.ViewPortHeight = heightConstraint;
         _body.ViewPortWidth = widthConstraint;
+        MeasureWidth = widthConstraint;
+        MeasureHeight = heightConstraint;
         var res = base.MeasureOverride(widthConstraint, heightConstraint);
         //if (res.Height> widthConstraint)
         //{

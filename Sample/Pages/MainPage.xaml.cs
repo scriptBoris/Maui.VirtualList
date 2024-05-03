@@ -9,9 +9,9 @@ public partial class MainPage : ContentPage
         InitializeComponent();
     }
 
-    private void Button_Clicked(object sender, EventArgs e)
+    private void Button_ClickedTestList50(object sender, EventArgs e)
     {
-        Navigation.PushAsync(new PageList());
+        Navigation.PushAsync(new PageList(50));
     }
 
     private void Button_Clicked_1(object sender, EventArgs e)
@@ -27,5 +27,20 @@ public partial class MainPage : ContentPage
     private void Button_Clicked_3(object sender, EventArgs e)
     {
         Navigation.PushAsync(new CollectionViewPage());
+    }
+
+    private void Button_Clicked_4(object sender, EventArgs e)
+    {
+        Navigation.PushAsync(new PageListMaui());
+    }
+
+    private void Button_ClickedTestList2(object sender, EventArgs e)
+    {
+        Navigation.PushAsync(new PageList(2));
+    }
+
+    private void Button_ClickedTestList0(object sender, EventArgs e)
+    {
+        Navigation.PushAsync(new PageList(0));
     }
 }
