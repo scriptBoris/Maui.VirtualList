@@ -52,7 +52,7 @@ public partial class AdvanceListPage : ContentPage
             FirstName = firstName,
             LastName = RandomNameGenerator.GenerateRandomLastName(),
             PhotoUrl = photo,
-            ShortBio = "No bio",
+            ShortBio = RandomNameGenerator.GenerateRandomBio(),
         };
         return user;
     }

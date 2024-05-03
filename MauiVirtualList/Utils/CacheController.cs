@@ -79,6 +79,11 @@ internal class CacheController
         return _cachePool.Last();
     }
 
+    public VirtualItem? LastOrDefault() 
+    {
+        return _cachePool.LastOrDefault();
+    }
+
     public VirtualItem LastVisible()
     {
         return _cachePool.Last(x => x.CachedPercentVis > 0);
@@ -238,7 +243,7 @@ internal class CacheController
         CacheCountBottom = bottomCount;
     }
 
-    internal double InsertCell(int logicIndex, IList itemssource, Body body)
+    internal double InsertCell(int logicIndex, SourceProvider itemssource, BodyGroup body)
     {
         bool isVisible = false;
         int insertPoolIndex = 0;
@@ -303,7 +308,7 @@ internal class CacheController
         return AvgCellHeight;
     }
 
-    internal VirtualItem? RemoveCell(int logicIndex, IList itemssource, Body body)
+    internal VirtualItem? RemoveCell(int logicIndex, SourceProvider itemssource, BodyGroup body)
     {
         var exists = _cachePool.FirstOrDefault(x => x.LogicIndex == logicIndex);
         if (exists != null)
@@ -376,7 +381,11 @@ internal class CacheController
         return fetch;
     }
 
-    internal double CalcAverageCellHeight()
+    private readonly TubeList<double> _cachesAvgHeaders = new(50);
+    private readonly TubeList<double> _cachesAvgItems = new(50);
+    private readonly TubeList<double> _cachesAvgFooters = new(50);
+
+    internal double CalcAverageCellHeight(SourceProvider source)
     {
         if (_cachePool.Count == 0)
         {
@@ -384,7 +393,34 @@ internal class CacheController
             return AvgCellHeight;
         }
 
-        AvgCellHeight = _cachePool.Average(x => x.DrawedSize.Height);
-        return AvgCellHeight;
+        foreach (var item in _cachePool)
+        {
+            switch (item.TemplateType)
+            {
+                case DoubleTypes.Header:
+                    _cachesAvgHeaders.Add(item.DrawedSize.Height);
+                    break;
+                case DoubleTypes.Item:
+                    _cachesAvgItems.Add(item.DrawedSize.Height);
+                    break;
+                case DoubleTypes.Footer:
+                    _cachesAvgFooters.Add(item.DrawedSize.Height);
+                    break;
+                default:
+                    break;
+            }
+        }
+
+        double avgH = _cachesAvgHeaders.Count > 0 ? _cachesAvgHeaders.Average() : 0;
+        double avgI = _cachesAvgItems.Count > 0 ? _cachesAvgItems.Average() : 0;
+        double avgF = _cachesAvgFooters.Count > 0 ? _cachesAvgFooters.Average() : 0;
+
+        double fullHeaders = source.CountHeadersOrFooters * avgH;
+        double fullItems = source.CountJustItems * avgI;
+        double fullFooters = source.CountHeadersOrFooters * avgF;
+
+        double abs = fullHeaders + fullItems + fullFooters;
+        double res = abs / source.Count;
+        return res;
     }
 }

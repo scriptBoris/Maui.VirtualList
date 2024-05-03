@@ -55,8 +55,9 @@ public class SimpleList : Layout, ILayoutManager
         {
             var view = (View)ItemTemplate.CreateContent();
             view.BindingContext = item;
-            var cell = new VirtualItem(view);
-            Children.Add(cell);
+            throw new NotImplementedException();
+            //var cell = new VirtualItem(view);
+            //Children.Add(cell);
         }
     }
 

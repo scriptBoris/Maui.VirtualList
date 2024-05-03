@@ -63,4 +63,17 @@ public static class RandomNameGenerator
         int index = _random.Next(LastNames.Length);
         return LastNames[index];
     }
+
+    internal static string GenerateRandomBio()
+    {
+        int rand = _random.Next(20);
+        return rand switch
+        {
+            1 => "Dedicated worker with a passion for problem-solving and teamwork",
+            2 => "Experienced professional with a track record of innovation, collaboration, and leadership, driving impactful results",
+            3 => "Esteemed professional renowned for exceptional leadership, innovative thinking, collaborative prowess, and a proven track record of transformative achievements across diverse domains.",
+            4 => "Distinguished professional widely acclaimed for exemplary leadership, innovative strategies, collaborative prowess, and a consistent track record of delivering transformative results that resonate across multifaceted landscapes.",
+            _ => "No bio",
+        };
+    }
 }

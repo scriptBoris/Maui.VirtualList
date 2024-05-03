@@ -69,6 +69,9 @@
 	</ItemGroup>
 
 	<ItemGroup>
+	  <Compile Update="Pages\PageGroupList.xaml.cs">
+	    <DependentUpon>PageGroupList.xaml</DependentUpon>
+	  </Compile>
 	  <Compile Update="Pages\PageListMaui.xaml.cs">
 	    <DependentUpon>PageListMaui.xaml</DependentUpon>
 	  </Compile>
@@ -79,6 +82,9 @@
 	    <Generator>MSBuild:Compile</Generator>
 	  </MauiXaml>
 	  <MauiXaml Update="Pages\CollectionViewPage.xaml">
+	    <Generator>MSBuild:Compile</Generator>
+	  </MauiXaml>
+	  <MauiXaml Update="Pages\PageGroupList.xaml">
 	    <Generator>MSBuild:Compile</Generator>
 	  </MauiXaml>
 	  <MauiXaml Update="Pages\PageListMaui.xaml">

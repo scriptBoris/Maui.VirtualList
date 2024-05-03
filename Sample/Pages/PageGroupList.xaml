@@ -1,0 +1,87 @@
+﻿<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:models="clr-namespace:Sample.Models"
+             xmlns:virtualList="clr-namespace:MauiVirtualList;assembly=MauiVirtualList"
+             x:Class="Sample.Pages.PageGroupList"
+             Title="Virtual list">
+
+    <ContentPage.ToolbarItems>
+        <ToolbarItem Clicked="ToolbarItem_Scroll200"
+                     Text="Scroll +200"/>
+
+        <ToolbarItem Clicked="ToolbarItem_Scroll10"
+                     Text="Scroll +10"/>
+
+        <ToolbarItem Clicked="ToolbarItem_ScrollToStart"
+                     Order="Secondary"
+                     Text="Scroll start"/>
+
+        <ToolbarItem Clicked="ToolbarItem_ScrollToEnd"
+                     Order="Secondary"
+                     Text="Scroll end"/>
+
+        <ToolbarItem Clicked="ToolbarItem_NewItem"
+                     Order="Secondary"
+                     Text="New item"/>
+
+        <ToolbarItem Clicked="ToolbarItem_RemoveItem"
+                     Order="Secondary"
+                     Text="Remove item"/>
+
+        <ToolbarItem Clicked="ToolbarItem_ClearItems"
+                     Order="Secondary"
+                     Text="Clear items"/>
+    </ContentPage.ToolbarItems>
+
+    <Grid RowDefinitions="*,300,*">
+        <virtualList:VirtualList x:Name="list"
+                                 Grid.Row="1"
+                                 VerticalOptions="Center"
+                                 BackgroundColor="Red">
+            <virtualList:VirtualList.GroupHeaderTemplate>
+                <DataTemplate x:DataType="models:ItemGroup">
+                    <Label Padding="20,0"
+                           BackgroundColor="Green"
+                           Text="{Binding GroupName}"/>
+                </DataTemplate>
+            </virtualList:VirtualList.GroupHeaderTemplate>
+
+            <virtualList:VirtualList.ItemTemplate>
+                <DataTemplate x:DataType="models:ItemTest">
+                    <Label HeightRequest="80"
+                           Padding="20,0"
+                           VerticalTextAlignment="Center"
+                           BackgroundColor="{Binding Color}"
+                           FontSize="20"
+                           TextColor="White">
+                        <Label.FormattedText>
+                            <FormattedString>
+                                <Span Text="#"/>
+                                <Span Text="{Binding Number}"/>
+                                <Span Text=" "/>
+                                <Span Text="{Binding Text}"/>
+                            </FormattedString>
+                        </Label.FormattedText>
+                    </Label>
+                </DataTemplate>
+            </virtualList:VirtualList.ItemTemplate>
+
+            <virtualList:VirtualList.EmptyViewTemplate>
+                <DataTemplate>
+                    <Label HorizontalTextAlignment="Center"
+                           VerticalTextAlignment="Center"
+                           BackgroundColor="Gray"
+                           Text="No items"
+                           TextColor="White"/>
+                </DataTemplate>
+            </virtualList:VirtualList.EmptyViewTemplate>
+        </virtualList:VirtualList>
+
+        <BoxView Grid.Row="0"
+                 BackgroundColor="#800020A0"/>
+
+        <BoxView Grid.Row="2"
+                 BackgroundColor="#800020A0"/>
+    </Grid>
+</ContentPage>

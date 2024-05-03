@@ -16,7 +16,7 @@ public class ScrollViewTest : ContentView
         this.GestureRecognizers.Add(pan);
     }
 
-    public double ContentHeight => ((Body)Content).EstimatedHeight;
+    public double ContentHeight => ((BodyGroup)Content).EstimatedHeight;
     public Size ContentSize => new Size(Content.Width, ContentHeight);
 
     public double ScrollY 

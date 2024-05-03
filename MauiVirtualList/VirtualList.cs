@@ -1,31 +1,66 @@
 ﻿using System.Collections;
+using System.Collections.Specialized;
 using System.Diagnostics;
 using MauiVirtualList.Controls;
 
 namespace MauiVirtualList;
 
-public class VirtualList : 
+public class VirtualList :
     //ScrollViewTest 
     ScrollView
 {
-    private readonly Body _body = new();
+    private readonly BodyGroup _body = new();
 
     public VirtualList()
     {
         Content = _body;
         Scrolled += VirtualList_Scrolled;
+        //Unloaded += OnUnloaded;
     }
 
+    //private void OnUnloaded(object? sender, EventArgs e)
+    //{
+    //    Unloaded -= OnUnloaded;
+    //    Scrolled -= VirtualList_Scrolled;
+    //}
+
     #region bindable props
-    public IList? ItemsSource
-    {
-        get => _body.ItemsSource;
-        set => _body.ItemsSource = value;
-    }
     public DataTemplate? ItemTemplate
     {
         get => _body.ItemTemplate;
         set => _body.ItemTemplate = value;
+    }
+
+    public DataTemplate? GroupHeaderTemplate
+    {
+        get => _body.GroupHeaderTemplate;
+        set => _body.GroupHeaderTemplate = value;
+    }
+
+    public DataTemplate? GroupFooterTemplate
+    {
+        get => _body.GroupFooterTemplate;
+        set => _body.GroupFooterTemplate = value;
+    }
+
+    // items source
+    public static readonly BindableProperty ItemsSourceProperty = BindableProperty.Create(
+        nameof(ItemsSource),
+        typeof(IList),
+        typeof(VirtualList),
+        null,
+        propertyChanged: (b, o, n) =>
+        {
+            if (b is VirtualList self)
+            {
+                self._body.SetupItemsSource(o as IList, n as IList);
+            }
+        }
+    );
+    public IList? ItemsSource
+    {
+        get => GetValue(ItemsSourceProperty) as IList;
+        set => SetValue(ItemsSourceProperty, value);
     }
 
     // items spacing
@@ -74,9 +109,9 @@ public class VirtualList :
         return base.ScrollToAsync(0, h, animated);
     }
 
-    public async Task ScrollToAsync(int index, 
+    public async Task ScrollToAsync(int index,
         int groupIndex = -1,
-        ScrollToPosition position = ScrollToPosition.MakeVisible, 
+        ScrollToPosition position = ScrollToPosition.MakeVisible,
         bool animate = true)
     {
         double y = _body.GetYItem(index);

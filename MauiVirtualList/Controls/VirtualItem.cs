@@ -1,4 +1,5 @@
-﻿using MauiVirtualList.Utils;
+﻿using MauiVirtualList.Enums;
+using MauiVirtualList.Utils;
 using Microsoft.Maui.Layouts;
 using System.Collections;
 using System.Diagnostics;
@@ -8,13 +9,19 @@ namespace MauiVirtualList.Controls;
 [DebuggerDisplay("Index: {LogicIndex}; OffsetY: {OffsetY}; Vis: {CachedPercentVis}")]
 public class VirtualItem : Layout, ILayoutManager
 {
-    public VirtualItem(View content)
+    private Dictionary<DoubleTypes, View> _cache = [];
+    private View _content;
+
+    internal VirtualItem(View content, DoubleTypes templateType)
     {
-        Content = content;
+        _content = content;
+        TemplateType = templateType;
         Children.Add(content);
+
+        _cache.Add(templateType, content);
     }
 
-    public View Content { get; init; }
+    internal DoubleTypes TemplateType { get; private set; }
 
     /// <summary>
     /// Верхний порог
@@ -38,18 +45,18 @@ public class VirtualItem : Layout, ILayoutManager
     public Size DrawedSize => DesiredSize;
     public double CachedPercentVis { get; set; } = -1;
     public bool AwaitRecalcMeasure { get; private set; }
-    public string DBGINFO => Content.BindingContext.ToString()!;
+    public string DBGINFO => _content.BindingContext.ToString()!;
 
     public Size ArrangeChildren(Rect bounds)
     {
-        Content.HardArrange(bounds);
+        _content.HardArrange(bounds);
         //Debug.WriteLine($"ITEM ARRANGE CHILDREN: {res}");
         return bounds.Size;
     }
 
     public Size Measure(double widthConstraint, double heightConstraint)
     {
-        var size = Content.HardMeasure(widthConstraint, heightConstraint);
+        var size = _content.HardMeasure(widthConstraint, heightConstraint);
         DesiredSize = size;
         AwaitRecalcMeasure = false;
         //Debug.WriteLine($"ITEM MEASURE: {size}");
@@ -61,11 +68,49 @@ public class VirtualItem : Layout, ILayoutManager
         return this;
     }
 
-    internal void Shift(int newLogicalIndex, IList source)
+    internal void Shift(int newLogicalIndex, SourceProvider source)
     {
-        LogicIndex = newLogicalIndex;
-        Content.BindingContext = source[newLogicalIndex];
-        DesiredSize = Size.Zero;
-        AwaitRecalcMeasure = true;
+        var context = source[newLogicalIndex];
+        var t = source.GetTypeItem(newLogicalIndex);
+
+        //this.BatchBegin();
+        if (t == TemplateType)
+        {
+            LogicIndex = newLogicalIndex;
+            _content.BindingContext = source[newLogicalIndex];
+            DesiredSize = Size.Zero;
+            AwaitRecalcMeasure = true;
+        }
+        else
+        {
+            var p = (BodyGroup)Parent;
+            var old = _content;
+            old.BindingContext = null;
+            Children.Remove(old);
+
+            if (_cache.TryGetValue(t, out var vv))
+            {
+                _content = vv;
+            }
+            else
+            {
+                _content = t switch
+                {
+                    DoubleTypes.Header => p.GroupHeaderTemplate.CreateContent() as View,
+                    DoubleTypes.Item => p.ItemTemplate.CreateContent() as View,
+                    DoubleTypes.Footer => p.GroupFooterTemplate.CreateContent() as View,
+                    _ => throw new InvalidOperationException(),
+                };
+                _cache.Add(t, _content);
+            }
+
+            TemplateType = t;
+            Children.Add(_content);
+            LogicIndex = newLogicalIndex;
+            _content.BindingContext = context;// source[newLogicalIndex];
+            DesiredSize = Size.Zero;
+            AwaitRecalcMeasure = true;
+        }
+        //this.BatchCommit();
     }
 }

@@ -17,6 +17,9 @@
         <Button Clicked="Button_Clicked_4"
                 Text="Open virtual list (MAUI)"/>
 
+        <Button Clicked="Button_Groups10"
+                Text="Open virtual group list (10)"/>
+
         <Button Clicked="Button_Clicked_2"
                 Text="Open advanced virtual list"/>
 
