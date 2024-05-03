@@ -14,6 +14,7 @@ public class Body : Layout, ILayoutManager
     private readonly ShifleCacheController _shifleController = new();
     private readonly CacheController _cacheController = new();
     private readonly DataTemplate _defaultItemTemplate = new(() => new Label { Text = "NO_TEMPLATE" });
+    private View? _emptyView;
     private double _scrollY;
     private int _cacheCount;
     private int _cacheCountTop;
@@ -98,8 +99,15 @@ public class Body : Layout, ILayoutManager
     {
         if (isHardUpdate)
         {
-            Children.Clear();
+            for (var i = Children.Count - 1; i >= 0; i--)
+            {
+                var item = Children[i];
+                if (item == _emptyView)
+                    continue;
+                Children.Remove(item);
+            }
             _cacheController.Clear();
+            ResolveEmptyView();
         }
 
         ViewPortWidth = vp_width;
@@ -153,6 +161,7 @@ public class Body : Layout, ILayoutManager
         if (ItemsSource == null || ViewPortWidth <= 0 || ViewPortHeight <= 0)
             return bounds.Size;
 
+        // 0: init view port
         _cacheController.UseViewFrame(ViewPortWidth, ViewPortHeight, _scrollY, ViewPortBottomLim);
 
         // 1: find caches
@@ -368,15 +377,21 @@ public class Body : Layout, ILayoutManager
     {
         var p = Parent as VirtualList;
 
+        _emptyView?.HardMeasure(ViewPortWidth, ViewPortHeight);
+
         foreach (var item in Children)
             item.Measure(widthConstraint, heightConstraint);
 
         AvgCellHeight = CalcAverageCellHeight();
         double height = Cunt * AvgCellHeight;
+        double mheight = p?.MeasureHeight ?? 200;
         if (height <= 0)
-            height = p?.MeasureHeight ?? 200;
+            height = mheight;
 
         EstimatedHeightCache = height;
+        if (height < mheight)
+            height = mheight;
+
         return new Size(widthConstraint, height);
     }
 
@@ -388,6 +403,12 @@ public class Body : Layout, ILayoutManager
     private void Draw(Rect bounds)
     {
         var drawItems = _cacheController.ExclusiveCachePool;
+
+        if (_emptyView != null)
+        {
+            var r = new Rect(0, 0, bounds.Width, bounds.Height);
+            _emptyView.HardArrange(r);
+        }
 
         // DRAW FOR FIRST
         var firstDraw = drawItems.FirstOrDefault();
@@ -484,6 +505,30 @@ public class Body : Layout, ILayoutManager
         return cell;
     }
 
+    internal void ResolveEmptyView()
+    {
+        bool requestFrag = (ItemsSource == null || ItemsSource.Count == 0);
+        bool currentFlag = _emptyView != null && _emptyView.IsVisible;
+
+        var parent = (VirtualList)Parent;
+        if (parent.EmptyViewTemplate == null)
+            requestFrag = false;
+        
+        if (requestFrag == currentFlag)
+            return;
+
+        if (requestFrag)
+        {
+            _emptyView = parent.EmptyViewTemplate!.CreateContent() as View;
+            Children.Add(_emptyView);
+        }
+        else
+        {
+            Children.Remove(_emptyView);
+            _emptyView = null;
+        }
+    }
+
     //internal void OffsetScrollAsRat(double scrollYAddValue)
     //{
     //    _scrollY += scrollYAddValue;
@@ -496,6 +541,7 @@ public class Body : Layout, ILayoutManager
     {
         var collection = (IList)sender!;
         double changeHeight = 0;
+        bool countChanged = true;
         switch (e.Action)
         {
             case NotifyCollectionChangedAction.Add:
@@ -509,8 +555,10 @@ public class Body : Layout, ILayoutManager
                     Children.Remove(del);
                 break;
             case NotifyCollectionChangedAction.Replace:
+                countChanged = false;
                 break;
             case NotifyCollectionChangedAction.Move:
+                countChanged = false;
                 break;
             case NotifyCollectionChangedAction.Reset:
                 _cacheController.Clear();
@@ -521,9 +569,10 @@ public class Body : Layout, ILayoutManager
         }
 
         if (changeHeight != 0)
-        {
             this.HardInvalidateMeasure();
-        }
+
+        if (countChanged)
+            this.ResolveEmptyView();
     }
 
     private double CalcAverageCellHeight()

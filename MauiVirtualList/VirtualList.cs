@@ -45,6 +45,24 @@ public class VirtualList :
         get => (double)GetValue(ItemsSpacingProperty);
         set => SetValue(ItemsSpacingProperty, value);
     }
+
+    // empty view
+    public static readonly BindableProperty EmptyViewTemplateProperty = BindableProperty.Create(
+        nameof(EmptyViewTemplate),
+        typeof(DataTemplate),
+        typeof(VirtualList),
+        null,
+        propertyChanged: (b, o, n) =>
+        {
+            if (b is VirtualList self)
+                self._body.ResolveEmptyView();
+        }
+    );
+    public DataTemplate? EmptyViewTemplate
+    {
+        get => GetValue(EmptyViewTemplateProperty) as DataTemplate;
+        set => SetValue(EmptyViewTemplateProperty, value);
+    }
     #endregion bindable props
 
     internal double MeasureWidth { get; private set; } = 200;

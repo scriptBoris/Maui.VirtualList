@@ -54,6 +54,16 @@
                     </Label>
                 </DataTemplate>
             </virtualList:VirtualList.ItemTemplate>
+
+            <virtualList:VirtualList.EmptyViewTemplate>
+                <DataTemplate>
+                    <Label HorizontalTextAlignment="Center"
+                           VerticalTextAlignment="Center"
+                           BackgroundColor="Gray"
+                           Text="No items"
+                           TextColor="White"/>
+                </DataTemplate>
+            </virtualList:VirtualList.EmptyViewTemplate>
         </virtualList:VirtualList>
 
         <BoxView Grid.Row="0"
