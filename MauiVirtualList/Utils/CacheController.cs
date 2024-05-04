@@ -415,9 +415,9 @@ internal class CacheController
         double avgI = _cachesAvgItems.Count > 0 ? _cachesAvgItems.Average() : 0;
         double avgF = _cachesAvgFooters.Count > 0 ? _cachesAvgFooters.Average() : 0;
 
-        double fullHeaders = source.CountHeadersOrFooters * avgH;
+        double fullHeaders = source.CountHeaders * avgH;
         double fullItems = source.CountJustItems * avgI;
-        double fullFooters = source.CountHeadersOrFooters * avgF;
+        double fullFooters = source.CountFooters * avgF;
 
         double abs = fullHeaders + fullItems + fullFooters;
         double res = abs / source.Count;

@@ -26,4 +26,12 @@ public static class Exensions
     {
         return Math.Abs(self - value) < epsilon;
     }
+
+    internal static byte AsByte(this bool self)
+    {
+        if (self)
+            return 1;
+        else
+            return 0;
+    }
 }

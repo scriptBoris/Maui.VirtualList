@@ -9,7 +9,7 @@ namespace MauiVirtualList.Controls;
 [DebuggerDisplay("Index: {LogicIndex}; OffsetY: {OffsetY}; Vis: {CachedPercentVis}")]
 public class VirtualItem : Layout, ILayoutManager
 {
-    private Dictionary<DoubleTypes, View> _cache = [];
+    private readonly Dictionary<DoubleTypes, View> _cache = [];
     private View _content;
 
     internal VirtualItem(View content, DoubleTypes templateType)
@@ -44,9 +44,16 @@ public class VirtualItem : Layout, ILayoutManager
     public bool IsCache => IsCacheTop || IsCacheBottom;
     public Size DrawedSize => DesiredSize;
     public double CachedPercentVis { get; set; } = -1;
-    public bool AwaitRecalcMeasure { get; private set; }
-    public string DBGINFO => _content.BindingContext.ToString()!;
 
+    /// <summary>
+    /// Требуется ли пересчет размера для данного элемента или нет
+    /// </summary>
+    public bool AwaitRecalcMeasure { get; private set; } = true;
+
+    #if DEBUG
+    public string DBGINFO => _content.BindingContext.ToString() ?? "<No data>";
+    #endif
+    
     public Size ArrangeChildren(Rect bounds)
     {
         _content.HardArrange(bounds);
@@ -71,10 +78,10 @@ public class VirtualItem : Layout, ILayoutManager
     internal void Shift(int newLogicalIndex, SourceProvider source)
     {
         var context = source[newLogicalIndex];
-        var t = source.GetTypeItem(newLogicalIndex);
+        var templateType = source.GetTypeItem(newLogicalIndex);
 
         //this.BatchBegin();
-        if (t == TemplateType)
+        if (templateType == TemplateType)
         {
             LogicIndex = newLogicalIndex;
             _content.BindingContext = source[newLogicalIndex];
@@ -83,31 +90,33 @@ public class VirtualItem : Layout, ILayoutManager
         }
         else
         {
-            var p = (BodyGroup)Parent;
+            var parent = (BodyGroup)Parent;
             var old = _content;
             old.BindingContext = null;
             Children.Remove(old);
 
-            if (_cache.TryGetValue(t, out var vv))
+            if (_cache.TryGetValue(templateType, out var vv))
             {
                 _content = vv;
             }
             else
             {
-                _content = t switch
+                var createdView = templateType switch
                 {
-                    DoubleTypes.Header => p.GroupHeaderTemplate.CreateContent() as View,
-                    DoubleTypes.Item => p.ItemTemplate.CreateContent() as View,
-                    DoubleTypes.Footer => p.GroupFooterTemplate.CreateContent() as View,
+                    DoubleTypes.Header => parent.GroupHeaderTemplate?.CreateContent() as View,
+                    DoubleTypes.Item => parent.ItemTemplate.CreateContent() as View,
+                    DoubleTypes.Footer => parent.GroupFooterTemplate?.CreateContent() as View,
                     _ => throw new InvalidOperationException(),
-                };
-                _cache.Add(t, _content);
+                } ?? throw new InvalidOperationException();
+
+                _content = createdView;
+                _cache.Add(templateType, _content);
             }
 
-            TemplateType = t;
+            TemplateType = templateType;
             Children.Add(_content);
             LogicIndex = newLogicalIndex;
-            _content.BindingContext = context;// source[newLogicalIndex];
+            _content.BindingContext = context;
             DesiredSize = Size.Zero;
             AwaitRecalcMeasure = true;
         }

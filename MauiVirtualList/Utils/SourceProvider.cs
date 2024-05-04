@@ -2,6 +2,8 @@
 using System.Collections;
 using System.Collections.Generic;
 using System.Collections.Specialized;
+using System.Reflection.PortableExecutable;
+using System.Text.RegularExpressions;
 
 namespace MauiVirtualList.Utils;
 
@@ -9,11 +11,11 @@ internal class SourceProvider : IDisposable
 {
     private readonly bool _isGroups;
     private readonly IList _source;
-    private readonly List<Header> _headers = null!;
-    private readonly List<Footer> _footers = null!;
+    private readonly IEnumerable<IEnumerable> _groups = null!;
     private readonly List<DoubleItem> _allItems = null!;
+    private byte _recalcCache = 0;
 
-    public SourceProvider(IList source)
+    public SourceProvider(IList source, bool useHeaders, bool useFooters)
     {
         _source = source;
 
@@ -23,37 +25,15 @@ internal class SourceProvider : IDisposable
         if (source is IEnumerable<IEnumerable> groups)
         {
             _isGroups = true;
-            //_groups = groups;
-            _headers = [];
             _allItems = [];
+            _groups = groups;
 
-            int itemIndex = 0;
+            Recalc(useHeaders, useFooters);
+
             foreach (var group in groups)
             {
-                // header
-                _allItems.Add(new DoubleItem(DoubleTypes.Header, group, itemIndex));
-                _headers.Add(new Header
-                {
-                    Index = itemIndex,
-                    Context = group,
-                });
-                itemIndex++;
-
-                // items
-                foreach (var item in group)
-                {
-                    _allItems.Add(new DoubleItem(DoubleTypes.Item, item, itemIndex));
-                    itemIndex++;
-                    CountJustItems++;
-                }
-
-                // footer
-                _allItems.Add(new DoubleItem(DoubleTypes.Footer, group, itemIndex));
-
                 if (group is INotifyCollectionChanged groupNC)
                     groupNC.CollectionChanged += InnerGroup_CollectionChanged;
-
-                CountHeadersOrFooters++;
             }
         }
         else
@@ -70,12 +50,6 @@ internal class SourceProvider : IDisposable
             {
                 var item = _allItems[index].Context;
                 return item;
-                //return item.Type switch
-                //{
-                //    DoubleTypes.Header => _headers[item.IndexGroup].Context,
-                //    DoubleTypes.Item => _source[item.IndexItem],
-                //    _ => throw new NotImplementedException(),
-                //};
             }
             else
             {
@@ -96,7 +70,8 @@ internal class SourceProvider : IDisposable
     }
 
     public int CountJustItems { get; private set; }
-    public int CountHeadersOrFooters { get; private set; }
+    public int CountHeaders { get; private set; }
+    public int CountFooters { get; private set; }
 
     internal DoubleTypes GetTypeItem(int index)
     {
@@ -105,6 +80,48 @@ internal class SourceProvider : IDisposable
 
         var item = _allItems[index];
         return item.Type;
+    }
+
+    internal void Recalc(bool useHeaders, bool useFooters)
+    {
+        byte newCache = (byte)(useHeaders.AsByte() + useFooters.AsByte());
+        
+        if (_recalcCache == newCache)
+            return;
+
+        _allItems.Clear();
+        CountHeaders = 0;
+        CountJustItems = 0;
+        CountFooters = 0;
+        _recalcCache = newCache;
+
+        int itemIndex = 0;
+        foreach (var group in _groups)
+        {
+            // header
+            if (useHeaders)
+            {
+                _allItems.Add(new DoubleItem(DoubleTypes.Header, group, itemIndex));
+                CountHeaders++;
+                itemIndex++;
+            }
+
+            // items
+            foreach (var item in group)
+            {
+                _allItems.Add(new DoubleItem(DoubleTypes.Item, item, itemIndex));
+                CountJustItems++;
+                itemIndex++;
+            }
+
+            // footer
+            if (useFooters)
+            {
+                _allItems.Add(new DoubleItem(DoubleTypes.Footer, group, itemIndex));
+                CountFooters++;
+                itemIndex++;
+            }
+        }
     }
 
     private void Source_CollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
@@ -120,20 +137,12 @@ internal class SourceProvider : IDisposable
                 if (newItem is INotifyCollectionChanged newItemNC)
                     newItemNC.CollectionChanged += InnerGroup_CollectionChanged;
 
-                _headers.Insert(newInsert, new Header
-                {
-                    Index = newInsert,
-                    Context = newItem,
-                });
-
                 break;
             case NotifyCollectionChangedAction.Remove:
                 var rmItem = (IList)e.OldItems![0]!;
                 if (rmItem is INotifyCollectionChanged rmItemNC)
                     rmItemNC.CollectionChanged -= InnerGroup_CollectionChanged;
 
-                var match = _headers[e.OldStartingIndex];
-                _headers.Remove(match);
                 break;
             case NotifyCollectionChangedAction.Reset:
                 foreach (var item in e.OldItems)
@@ -141,7 +150,7 @@ internal class SourceProvider : IDisposable
                     if (item is INotifyCollectionChanged resetItemNC)
                         resetItemNC.CollectionChanged -= InnerGroup_CollectionChanged;
                 }
-                _headers.Clear();
+
                 _allItems.Clear();
                 break;
             case NotifyCollectionChangedAction.Replace:
@@ -153,6 +162,7 @@ internal class SourceProvider : IDisposable
 
     private void InnerGroup_CollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
     {
+        // TODO доделать для групп
     }
 
     public void Dispose()

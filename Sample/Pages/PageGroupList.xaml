@@ -39,6 +39,7 @@
                                  Grid.Row="1"
                                  VerticalOptions="Center"
                                  BackgroundColor="Red">
+            <!--header-->
             <virtualList:VirtualList.GroupHeaderTemplate>
                 <DataTemplate x:DataType="models:ItemGroup">
                     <Label Padding="20,0"
@@ -47,6 +48,7 @@
                 </DataTemplate>
             </virtualList:VirtualList.GroupHeaderTemplate>
 
+            <!--item-->
             <virtualList:VirtualList.ItemTemplate>
                 <DataTemplate x:DataType="models:ItemTest">
                     <Label HeightRequest="80"

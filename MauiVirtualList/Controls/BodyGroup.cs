@@ -65,7 +65,9 @@ public class BodyGroup : Layout, ILayoutManager
         propertyChanged: (b, o, n) =>
         {
             if (b is BodyGroup self)
+            {
                 self.Update(true, self.ViewPortWidth, self.ViewPortHeight);
+            }
         }
     );
     public DataTemplate? GroupFooterTemplate
@@ -86,6 +88,8 @@ public class BodyGroup : Layout, ILayoutManager
     public double EstimatedHeight => Cunt * AvgCellHeight;
     public double EstimatedHeightCache {  get; private set; } = 0;
 
+    // TODO Убрать, вставка идет норм без этого
+    [Obsolete("Убрать")]
     /// <summary>
     /// Прокрутил ли пользователь по конца списка или нет
     /// </summary>
@@ -116,7 +120,7 @@ public class BodyGroup : Layout, ILayoutManager
         ItemsSource?.Dispose();
 
         if (n is IList source)
-            ItemsSource = new(source);
+            ItemsSource = new(source, GroupHeaderTemplate != null, GroupFooterTemplate != null);
 
         Update(true, ViewPortWidth, ViewPortHeight);
     }
@@ -133,6 +137,7 @@ public class BodyGroup : Layout, ILayoutManager
                 Children.Remove(item);
             }
             _cacheController.Clear();
+            ItemsSource?.Recalc(GroupHeaderTemplate != null, GroupFooterTemplate != null);
             ResolveEmptyView();
         }
 
@@ -245,10 +250,10 @@ public class BodyGroup : Layout, ILayoutManager
             }
 
             double cellHeight;
-            if (cell.DesiredSize.IsZero)
+            if (cell.AwaitRecalcMeasure)
                 cellHeight = cell.HardMeasure(ViewPortWidth, double.PositiveInfinity).Height;
             else
-                cellHeight = cell.DesiredSize.Height;
+                cellHeight = cell.DrawedSize.Height;
 
             cell.OffsetY = newOffsetY;
             newOffsetY += cellHeight;
@@ -302,6 +307,7 @@ public class BodyGroup : Layout, ILayoutManager
                 {
                     cell = BuildCell(index, insert);
                 }
+
                 cell.HardMeasure(ViewPortWidth, double.PositiveInfinity);
                 cell.OffsetY = anchor.OffsetY - cell.DrawedSize.Height;
                 cell.CachedPercentVis = CalcMethods.CalcVisiblePercent(cell.OffsetY, cell.BottomLim, _scrollY, ViewPortBottomLim).Percent;
@@ -515,16 +521,35 @@ public class BodyGroup : Layout, ILayoutManager
     {
         var context = ItemsSource![logicIndex];
         var templateType = ItemsSource.GetTypeItem(logicIndex);
-        DataTemplate? template = templateType switch
+        bool isRequired;
+        DataTemplate? template;
+
+        switch (templateType)
         {
-            DoubleTypes.Header => GroupHeaderTemplate,
-            DoubleTypes.Item => ItemTemplate,
-            DoubleTypes.Footer => GroupFooterTemplate,
-            _ => throw new InvalidOperationException(),
-        };
-        var userView = (template ?? _defaultItemTemplate).LoadTemplate() as View;
+            case DoubleTypes.Header:
+                template = GroupHeaderTemplate;
+                isRequired = false;
+                break;
+            case DoubleTypes.Item:
+                template = ItemTemplate ?? _defaultItemTemplate;
+                isRequired = true;
+                break;
+            case DoubleTypes.Footer:
+                template = GroupFooterTemplate;
+                isRequired = false;
+                break;
+            default:
+                throw new InvalidOperationException();
+        }
+
+        var userView = template?.LoadTemplate() as View;
         if (userView == null)
-            userView = new Label { Text = "INVALID_ITEM_TEMPLATE" };
+        {
+            if (isRequired)
+                userView = new Label { Text = "INVALID_ITEM_TEMPLATE" };
+            else
+                throw new InvalidOperationException();
+        }
 
         userView.BindingContext = context;
         var cell = new VirtualItem(userView, templateType)
