@@ -27,11 +27,11 @@ internal class SourceProvider : IDisposable
             _headers = [];
             _allItems = [];
 
-            int headIndex = 0;
             int itemIndex = 0;
             foreach (var group in groups)
             {
-                _allItems.Add(new DoubleItem(DoubleTypes.Header, group, indexGroup:headIndex));
+                // header
+                _allItems.Add(new DoubleItem(DoubleTypes.Header, group, itemIndex));
                 _headers.Add(new Header
                 {
                     Index = itemIndex,
@@ -39,17 +39,20 @@ internal class SourceProvider : IDisposable
                 });
                 itemIndex++;
 
+                // items
                 foreach (var item in group)
                 {
-                    _allItems.Add(new DoubleItem(DoubleTypes.Item, item, indexItem:itemIndex));
+                    _allItems.Add(new DoubleItem(DoubleTypes.Item, item, itemIndex));
                     itemIndex++;
                     CountJustItems++;
                 }
 
+                // footer
+                _allItems.Add(new DoubleItem(DoubleTypes.Footer, group, itemIndex));
+
                 if (group is INotifyCollectionChanged groupNC)
                     groupNC.CollectionChanged += InnerGroup_CollectionChanged;
 
-                headIndex++;
                 CountHeadersOrFooters++;
             }
         }
@@ -183,17 +186,15 @@ internal class SourceProvider : IDisposable
 
     private class DoubleItem
     {
-        public DoubleItem(DoubleTypes type, object context, int indexGroup = -1, int indexItem = -1)
+        public DoubleItem(DoubleTypes type, object context, int indexItem)
         {
             Type = type;
-            IndexGroup = indexGroup;
-            IndexItem = indexItem;
+            Index = indexItem;
             Context = context;
         }
 
         public DoubleTypes Type { get; }
-        public int IndexGroup { get; }
-        public int IndexItem { get; }
+        public int Index { get; set; } = -1;
         public object Context { get; }
     }
 }

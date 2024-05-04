@@ -519,7 +519,7 @@ public class BodyGroup : Layout, ILayoutManager
         {
             DoubleTypes.Header => GroupHeaderTemplate,
             DoubleTypes.Item => ItemTemplate,
-            DoubleTypes.Footer => GroupHeaderTemplate,
+            DoubleTypes.Footer => GroupFooterTemplate,
             _ => throw new InvalidOperationException(),
         };
         var userView = (template ?? _defaultItemTemplate).LoadTemplate() as View;

@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:ffimageloading="clr-namespace:FFImageLoading.Maui;assembly=FFImageLoading.Maui"
+             xmlns:fftransformations="clr-namespace:FFImageLoading.Transformations;assembly=FFImageLoading.Maui"
+             xmlns:list="clr-namespace:MauiVirtualList;assembly=MauiVirtualList"
+             xmlns:models="clr-namespace:Sample.Models"
+             x:Class="Sample.Pages.AdvanceGroupListPage"
+             Title="AdvanceGroupListPage"
+             BackgroundColor="#e2e0e1">
+
+    <!--BackgroundColor="#f2f0f1"-->
+    <list:VirtualList x:Name="list"
+                      Padding="0,0,0,10">
+        <list:VirtualList.GroupHeaderTemplate>
+            <!--header-->
+            <DataTemplate x:DataType="models:ServiceGroup">
+                <Border Margin="10,10,10,0"
+                        Padding="10,10,10,5"
+                        BackgroundColor="White"
+                        StrokeShape="RoundRectangle 10,10,0,0"
+                        StrokeThickness="0">
+                    <Grid ColumnDefinitions="Auto,30,30,*"
+                          RowDefinitions="Auto, 0.8"
+                          RowSpacing="5">
+                        <Label Margin="0,0,5,0"
+                               FontAttributes="Bold"
+                               FontSize="20"
+                               Text="{Binding GroupName}"
+                               TextColor="#1471b7"/>
+
+                        <Image Grid.Column="1"
+                               Source="icons/percil_edit.png"/>
+
+                        <Image Grid.Column="2"
+                               Source="icons/trash_outline.png"/>
+
+                        <Image Grid.Column="3"
+                               HorizontalOptions="EndAndExpand"
+                               Source="icons/plus.png"/>
+
+                        <ContentView Grid.Row="1"
+                                     Grid.ColumnSpan="4"
+                                     BackgroundColor="#44707070"/>
+                    </Grid>
+                </Border>
+            </DataTemplate>
+        </list:VirtualList.GroupHeaderTemplate>
+
+        <!--item-->
+        <list:VirtualList.ItemTemplate>
+            <DataTemplate x:DataType="models:ServiceItem">
+                <Grid Margin="10,0"
+                      Padding="25,8,10,8"
+                      BackgroundColor="White"
+                      ColumnDefinitions="*, 65, 50">
+                    <Label FontSize="14"
+                           Text="{Binding Name}"
+                           TextColor="#333"/>
+
+                    <Label Grid.Column="1"
+                           HorizontalTextAlignment="End"
+                           Text="{Binding DurationOnMinutes, StringFormat='{0} min'}"
+                           TextColor="#333"/>
+
+                    <Label Grid.Column="2"
+                           HorizontalTextAlignment="End"
+                           Text="{Binding Price, StringFormat='${0}'}"
+                           TextColor="#333"/>
+                </Grid>
+            </DataTemplate>
+        </list:VirtualList.ItemTemplate>
+
+        <!--footer-->
+        <list:VirtualList.GroupFooterTemplate>
+            <DataTemplate x:DataType="models:ServiceGroup">
+                <Border HeightRequest="15"
+                        Margin="10,0,10,0"
+                        BackgroundColor="White"
+                        StrokeShape="RoundRectangle 0,0,20,20"
+                        StrokeThickness="0"
+                        TranslationY="-0.5"/>
+            </DataTemplate>
+        </list:VirtualList.GroupFooterTemplate>
+    </list:VirtualList>
+</ContentPage>
