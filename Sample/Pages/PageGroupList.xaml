@@ -25,7 +25,7 @@
                      Order="Secondary"
                      Text="New item"/>
 
-        <ToolbarItem Clicked="ToolbarItem_RemoveItem"
+        <ToolbarItem Clicked="ToolbarItem_RemoveGroup"
                      Order="Secondary"
                      Text="Remove item"/>
 
@@ -42,9 +42,24 @@
             <!--header-->
             <virtualList:VirtualList.GroupHeaderTemplate>
                 <DataTemplate x:DataType="models:ItemGroup">
-                    <Label Padding="20,0"
-                           BackgroundColor="Green"
-                           Text="{Binding GroupName}"/>
+                    <Label HeightRequest="50"
+                           Padding="20,0"
+                           VerticalTextAlignment="Center"
+                           BackgroundColor="Green">
+                        <Label.FormattedText>
+                            <FormattedString>
+                                <Span Text="#"/>
+                                <Span Text="{Binding Number}"/>
+                                <Span Text=" "/>
+                                <Span Text="{Binding GroupName}"/>
+                                <Span Text=" (count items:"/>
+                                <Span Text="{Binding Count}"/>
+                                <Span Text=")"/>
+                                <Span Text=" / initID: "/>
+                                <Span Text="{Binding InitId}"/>
+                            </FormattedString>
+                        </Label.FormattedText>
+                    </Label>
                 </DataTemplate>
             </virtualList:VirtualList.GroupHeaderTemplate>
 

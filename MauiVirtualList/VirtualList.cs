@@ -2,27 +2,22 @@
 using System.Collections.Specialized;
 using System.Diagnostics;
 using MauiVirtualList.Controls;
+using MauiVirtualList.Utils;
 
 namespace MauiVirtualList;
 
 public class VirtualList :
-    //ScrollViewTest 
-    ScrollView
+    ScrollViewTest
+    //ScrollViewProd
 {
-    private readonly BodyGroup _body = new();
+    private readonly BodyGroup _body;
 
     public VirtualList()
     {
+        _body = new BodyGroup(this);
         Content = _body;
         Scrolled += VirtualList_Scrolled;
-        //Unloaded += OnUnloaded;
     }
-
-    //private void OnUnloaded(object? sender, EventArgs e)
-    //{
-    //    Unloaded -= OnUnloaded;
-    //    Scrolled -= VirtualList_Scrolled;
-    //}
 
     #region bindable props
     public DataTemplate? ItemTemplate
@@ -100,9 +95,6 @@ public class VirtualList :
     }
     #endregion bindable props
 
-    internal double MeasureWidth { get; private set; } = 200;
-    internal double MeasureHeight { get; private set; } = 200;
-
     public Task ScrollToAsync(double percent, bool animated)
     {
         var h = _body.Height * percent;
@@ -128,21 +120,17 @@ public class VirtualList :
     private void VirtualList_Scrolled(object? sender, ScrolledEventArgs e)
     {
         Debug.WriteLine($"Scrollerd! Y={e.ScrollY}");
-        _body.Scrolled(e.ScrollY, Width, Height);
+        _body.Scrolled(e.ScrollY, ViewPortWidth, ViewPortHeight);
     }
 
     protected override Size MeasureOverride(double widthConstraint, double heightConstraint)
     {
-        _body.ViewPortHeight = heightConstraint;
-        _body.ViewPortWidth = widthConstraint;
-        MeasureWidth = widthConstraint;
-        MeasureHeight = heightConstraint;
+        if (widthConstraint == ViewPortWidth && heightConstraint == ViewPortHeight)
+            return new Size(ViewPortWidth, ViewPortHeight);
+
+        ViewPortWidth = widthConstraint - ScrollerWidth;
+        ViewPortHeight = heightConstraint;
         var res = base.MeasureOverride(widthConstraint, heightConstraint);
-        //if (res.Height> widthConstraint)
-        //{
-        //    res = new Size(res.Width, heightConstraint);
-        //    DesiredSize = res;
-        //}
         return res;
     }
 }

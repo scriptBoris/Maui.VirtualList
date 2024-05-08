@@ -1,36 +1,73 @@
-﻿namespace MauiVirtualList.Controls;
+﻿using MauiVirtualList.Utils;
+using Microsoft.Maui.Layouts;
 
-public class ScrollViewTest : ContentView
+namespace MauiVirtualList.Controls;
+
+public class ScrollViewTest : Layout, IScroller, ILayoutManager
 {
+    /// <summary>
+    /// Реверсивный (ниже нуля)
+    /// </summary>
     private double _scrollY;
-    private double lastY;
+    private double _lastY;
+    private BodyGroup _content = null!;
+    private VerticalSlider _progressLine;
+    private const double _progressWidth = 15;
 
     public event EventHandler<ScrolledEventArgs>? Scrolled;
 
     public ScrollViewTest()
     {
-        var pan = new PanGestureRecognizer
-        {
-        };
+        var pan = new PanGestureRecognizer();
         pan.PanUpdated += Pan_PanUpdated;
-        this.GestureRecognizers.Add(pan);
+        GestureRecognizers.Add(pan);
+
+        _progressLine = new VerticalSlider(_progressWidth);
+        Children.Add(_progressLine);
     }
 
-    public double ContentHeight => ((BodyGroup)Content).EstimatedHeight;
-    public Size ContentSize => new Size(Content.Width, ContentHeight);
+    #region props
+    public View Content
+    {
+        get => _content;
+        set
+        {
+            _content = (BodyGroup)value;
+            Children.Add(value);
+        }
+    }
 
-    public double ScrollY 
-    { 
+    public double ContentHeight => _content.EstimatedHeight;
+    public Size ContentSize => new Size(Content.Width, _content.EstimatedHeight);
+
+    public double ScrollY
+    {
         get => -_scrollY;
-        private set
+        set
         {
             if (_scrollY != value)
             {
                 _scrollY = value;
-                Content.TranslationY = value;
+                this.BatchBegin();
                 Scrolled?.Invoke(this, new ScrolledEventArgs(0, -value));
+                Content.TranslationY = value;
+                DrawProgress();
+                this.BatchCommit();
             }
         }
+    }
+
+    public double ScrollerWidth => _progressWidth;
+    public double ViewPortWidth { get; set; } = 200;
+    public double ViewPortHeight { get; set; } = 200;
+    #endregion props
+
+    void IScroller.SetScrollY(double setupScrollY)
+    {
+        _lastY = -setupScrollY;
+        _scrollY = -setupScrollY;
+        Content.TranslationY = -setupScrollY;
+        DrawProgress();
     }
 
     private void Pan_PanUpdated(object? sender, PanUpdatedEventArgs e)
@@ -40,7 +77,7 @@ public class ScrollViewTest : ContentView
             case GestureStatus.Started:
                 break;
             case GestureStatus.Running:
-                var intent = lastY + e.TotalY;
+                var intent = _lastY + e.TotalY;
                 if (intent > 0)
                     intent = 0;
 
@@ -50,10 +87,10 @@ public class ScrollViewTest : ContentView
                 ScrollY = intent;
                 break;
             case GestureStatus.Completed:
-                lastY = _scrollY;
+                _lastY = _scrollY;
                 break;
             case GestureStatus.Canceled:
-                lastY = _scrollY;
+                _lastY = _scrollY;
                 break;
             default:
                 break;
@@ -70,17 +107,52 @@ public class ScrollViewTest : ContentView
             fixedY = ContentHeight - Height;
 
         ScrollY = -fixedY;
-        lastY = -fixedY;
+        _lastY = -fixedY;
+        DrawProgress();
         return Task.CompletedTask;
     }
 
-    protected override Size MeasureOverride(double widthConstraint, double heightConstraint)
+    private void DrawProgress()
     {
-        var res = base.MeasureOverride(widthConstraint, heightConstraint);
+        double dif = ScrollY / (ContentHeight - Height);
+        _progressLine.Progress = dif;
+    }
+
+    public Size Measure(double widthConstraint, double heightConstraint)
+    {
+        _progressLine.HardMeasure(_progressWidth, heightConstraint);
+
+        double contentWidthConstraint = widthConstraint - _progressWidth;
+        double height;
+
+        var res = Content.HardMeasure(contentWidthConstraint, heightConstraint);
         if (res.Height > heightConstraint)
         {
-            return new Size(res.Width, heightConstraint);
+            height = heightConstraint;
         }
-        return res;
+        else
+        {
+            height = res.Height;
+        }
+
+        return new Size(widthConstraint, height);
+    }
+
+    public Size ArrangeChildren(Rect bounds)
+    {
+        double widthBody = bounds.Width - _progressWidth;
+
+        var rect1 = new Rect(0, 0, widthBody, bounds.Height);
+        Content.HardArrange(rect1);
+
+        var rect2 = new Rect(widthBody, 0, _progressWidth, bounds.Height);
+        _progressLine.HardArrange(rect2);
+
+        return bounds.Size;
+    }
+
+    protected override ILayoutManager CreateLayoutManager()
+    {
+        return this;
     }
 }

@@ -79,7 +79,7 @@ internal class CacheController
         return _cachePool.Last();
     }
 
-    public VirtualItem? LastOrDefault() 
+    public VirtualItem? LastOrDefault()
     {
         return _cachePool.LastOrDefault();
     }
@@ -308,9 +308,9 @@ internal class CacheController
         return AvgCellHeight;
     }
 
-    internal VirtualItem? RemoveCell(int logicIndex, SourceProvider itemssource, BodyGroup body)
+    private VirtualItem[] RemoveCell_internal(int wideIndex, SourceProvider source, out double rmHeight, out double changedScrollY)
     {
-        var exists = _cachePool.FirstOrDefault(x => x.LogicIndex == logicIndex);
+        var exists = _cachePool.FirstOrDefault(x => x.LogicIndex == wideIndex);
         if (exists != null)
         {
             int poolIndex = _cachePool.IndexOf(exists);
@@ -320,14 +320,151 @@ internal class CacheController
             for (int i = poolIndex; i < _cachePool.Count; i++)
             {
                 var cell = _cachePool[i];
-                cell.Shift(cell.LogicIndex - 1, itemssource);
+                cell.Shift(cell.LogicIndex - 1, source);
                 cell.Measure(ViewPortWidth, double.PositiveInfinity);
                 cell.OffsetY -= h;
             }
-            return exists;
+
+            changedScrollY = 0;
+            rmHeight = AvgCellHeight;
+            return [exists];
+        }
+        else
+        {
+            changedScrollY = 0;
+            rmHeight = AvgCellHeight;
+            return [];
+        }
+    }
+
+    private VirtualItem[] RemoveCells_internal(int startWideIndex, int count, SourceProvider source, out double rmHeight, out double changedScrollY)
+    {
+        rmHeight = 0;
+        changedScrollY = 0;
+        int endWideIndex = startWideIndex + count - 1;
+        bool isAlgorithmUp = endWideIndex != source.Count - 1;
+        var removedCells = new List<VirtualItem>();
+
+        // Удаляем элементы сверху-вниз
+        if (isAlgorithmUp)
+        {
+            double heightRm = 0;
+            double startOffsetY = 0;
+            int startOffsetIndex = 0;
+            VirtualItem? start = null;
+            for (int i = 0; i < _cachePool.Count; i++)
+            {
+                var cell = _cachePool[i];
+                int cellindex = cell.LogicIndex;
+                if (cellindex >= startWideIndex && endWideIndex >= cellindex)
+                {
+                    if (start == null)
+                    {
+                        start = cell;
+                        startOffsetIndex = cell.LogicIndex;
+                    }
+
+                    removedCells.Add(cell);
+                    heightRm += cell.DrawedSize.Height;
+                    _cachePool.Remove(cell);
+                    i--;
+                }
+                else if (start != null)
+                {
+                    cell.LogicIndex -= count;
+                    cell.OffsetY -= heightRm;
+                    startOffsetY = cell.BottomLim;
+                    startOffsetIndex = cell.LogicIndex + 1;
+                }
+            }
+
+            // rm cache
+            int offDirect = startOffsetIndex;
+            int off = startOffsetIndex + removedCells.Count;
+            double offHeight = 0;
+            foreach (var rmcell in removedCells)
+            {
+                _cachePool.Add(rmcell);
+                rmcell.OffsetY = startOffsetY + offHeight;
+                rmcell.ShiftDirect(offDirect, off, source);
+                rmcell.HardMeasure(ViewPortWidth, double.PositiveInfinity);
+
+                offHeight += rmcell.DrawedSize.Height;
+                offDirect++;
+                off++;
+            }
+            rmHeight = heightRm;
+        }
+        // Удаляем элементы снизу-вверх (если была удалена последяя группа)
+        else
+        {
+            double heightRm = 0;
+            double startOffsetY = 0;
+            int startOffsetIndex = 0;
+            VirtualItem? start = null;
+            for (int i = 0; i < _cachePool.Count; i++)
+            {
+                var cell = _cachePool[i];
+                int cellindex = cell.LogicIndex;
+                if (cellindex >= startWideIndex && endWideIndex >= cellindex)
+                {
+                    removedCells.Add(cell);
+                    heightRm += cell.DrawedSize.Height;
+                    _cachePool.Remove(cell);
+                    i--;
+                }
+                else if (start == null)
+                {
+                    start = cell;
+                    startOffsetIndex = cell.LogicIndex;
+                    startOffsetY = cell.OffsetY;
+                }
+            }
+
+            int insertId = startOffsetIndex - 1;
+            double offY = startOffsetY;
+            for (int i = 0; i < removedCells.Count; i++)
+            {
+                var cell = removedCells[i];
+                cell.Shift(insertId - i, source);
+                cell.Measure(ViewPortWidth, double.PositiveInfinity);
+
+                offY -= cell.DrawedSize.Height;
+                cell.OffsetY = offY;
+                _cachePool.Insert(0, cell);
+            }
+            rmHeight = -heightRm;
+            changedScrollY = -heightRm;
         }
 
-        return null;
+        return [];
+    }
+
+    internal VirtualItem[] RemoveCellAuto(int logicIndex, SourceProvider source, out double rmHeight, out double changedScrollY)
+    {
+        if (source.IsGroups)
+        {
+            var wideIndex = source.GetWideIndexOfHead(logicIndex);
+            var wideItem = (IList)source[wideIndex]!;
+
+            int countRemovedItems = wideItem.Count;
+            int startWideIndex = wideIndex;
+
+            if (source.UsedHeaders)
+                countRemovedItems++;
+
+            if (source.UsedFooters)
+                countRemovedItems++;
+
+            if (countRemovedItems == 1)
+                return RemoveCell_internal(logicIndex, source, out rmHeight, out changedScrollY);
+            else
+                return RemoveCells_internal(startWideIndex, countRemovedItems, source, out rmHeight, out changedScrollY);
+        }
+        else
+        {
+            return RemoveCell_internal(logicIndex, source, out rmHeight, out changedScrollY);
+        }
     }
 
     internal DirectionType GetDirection(double bodyFullHeight)
@@ -411,16 +548,29 @@ internal class CacheController
             }
         }
 
-        double avgH = _cachesAvgHeaders.Count > 0 ? _cachesAvgHeaders.Average() : 0;
-        double avgI = _cachesAvgItems.Count > 0 ? _cachesAvgItems.Average() : 0;
-        double avgF = _cachesAvgFooters.Count > 0 ? _cachesAvgFooters.Average() : 0;
+        var lst = new List<double>();
 
-        double fullHeaders = source.CountHeaders * avgH;
-        double fullItems = source.CountJustItems * avgI;
-        double fullFooters = source.CountFooters * avgF;
+        if (_cachesAvgItems.Count > 0)
+            lst.Add(_cachesAvgItems.Average());
 
-        double abs = fullHeaders + fullItems + fullFooters;
-        double res = abs / source.Count;
-        return res;
+        if (_cachesAvgHeaders.Count > 0)
+            lst.Add(_cachesAvgHeaders.Average());
+
+        if (_cachesAvgFooters.Count > 0)
+            lst.Add(_cachesAvgFooters.Average());
+
+        double result = 0;
+        if (lst.Count > 0)
+            result = lst.Average();
+
+        return result;
+
+        //double fullHeaders = source.CountHeaders * avgH;
+        //double fullItems = source.CountJustItems * avgI;
+        //double fullFooters = source.CountFooters * avgF;
+
+        //double abs = fullHeaders + fullItems + fullFooters;
+        //double res = abs / source.Count;
+        //return res;
     }
 }

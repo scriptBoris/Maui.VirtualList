@@ -1,5 +1,6 @@
 using Sample.Models;
 using System.Collections.ObjectModel;
+using System.Windows.Input;
 
 namespace Sample.Pages;
 
@@ -8,6 +9,9 @@ public partial class AdvanceGroupListPage : ContentPage
     public AdvanceGroupListPage()
     {
         InitializeComponent();
+        CommandRenameGroup = new Command<ServiceGroup>(ActionRenameGroup);
+        CommandDeleteGroup = new Command<ServiceGroup>(ActionDeleteGroup);
+        CommandAddItem = new Command<ServiceGroup>(ActionAddItem);
 
         var src = new ObservableCollection<ServiceGroup>
         {
@@ -264,7 +268,35 @@ public partial class AdvanceGroupListPage : ContentPage
                 },
             },
         };
-
         list.ItemsSource = src;
+        Groups = src;
+    }
+
+    public ObservableCollection<ServiceGroup> Groups { get; init; }
+
+    public ICommand CommandRenameGroup { get; init; }
+    private async void ActionRenameGroup(ServiceGroup group)
+    {
+        var res = await DisplayPromptAsync("Rename", null, initialValue: group.GroupName, maxLength: 30);
+        if (res == null)
+            return;
+
+        group.GroupName = res;
+    }
+
+    public ICommand CommandDeleteGroup { get; init; }
+    private async void ActionDeleteGroup(ServiceGroup group)
+    {
+        bool res = await DisplayAlert("Delete",
+            $"You are sure delete \"{group.GroupName}\"?", "Delete", "Cancel");
+        if (!res) 
+            return;
+
+        Groups.Remove(group);
+    }
+
+    public ICommand CommandAddItem { get; init; }
+    private void ActionAddItem(ServiceGroup group)
+    {
     }
 }

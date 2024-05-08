@@ -1,7 +1,9 @@
 ﻿using Sample.Utils;
+using System.Diagnostics;
 
 namespace Sample.Models;
 
+[DebuggerDisplay("{Name}")]
 public class ServiceItem : BaseNotify
 {
     public required string Name { get; set; }

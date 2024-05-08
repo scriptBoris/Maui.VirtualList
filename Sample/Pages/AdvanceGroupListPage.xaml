@@ -7,7 +7,8 @@
              xmlns:models="clr-namespace:Sample.Models"
              x:Class="Sample.Pages.AdvanceGroupListPage"
              Title="AdvanceGroupListPage"
-             BackgroundColor="#e2e0e1">
+             x:Name="root"
+             BackgroundColor="{AppThemeBinding Light=#e2e0e1, Dark=#333}">
 
     <!--BackgroundColor="#f2f0f1"-->
     <list:VirtualList x:Name="list"
@@ -17,27 +18,34 @@
             <DataTemplate x:DataType="models:ServiceGroup">
                 <Border Margin="10,10,10,0"
                         Padding="10,10,10,5"
-                        BackgroundColor="White"
+                        BackgroundColor="{AppThemeBinding Light=#FFF, Dark=#111}"
                         StrokeShape="RoundRectangle 10,10,0,0"
                         StrokeThickness="0">
                     <Grid ColumnDefinitions="Auto,30,30,*"
                           RowDefinitions="Auto, 0.8"
                           RowSpacing="5">
                         <Label Margin="0,0,5,0"
+                               VerticalTextAlignment="Center"
                                FontAttributes="Bold"
                                FontSize="20"
                                Text="{Binding GroupName}"
                                TextColor="#1471b7"/>
 
-                        <Image Grid.Column="1"
-                               Source="icons/percil_edit.png"/>
+                        <ImageButton Grid.Column="1"
+                                     Command="{Binding CommandRenameGroup, Source={Reference root}}"
+                                     CommandParameter="{Binding .}"
+                                     Source="icons/percil_edit.png"/>
 
-                        <Image Grid.Column="2"
-                               Source="icons/trash_outline.png"/>
+                        <ImageButton Grid.Column="2"
+                                     Command="{Binding CommandDeleteGroup, Source={Reference root}}"
+                                     CommandParameter="{Binding .}"
+                                     Source="icons/trash_outline.png"/>
 
-                        <Image Grid.Column="3"
-                               HorizontalOptions="EndAndExpand"
-                               Source="icons/plus.png"/>
+                        <ImageButton Grid.Column="3"
+                                     HorizontalOptions="EndAndExpand"
+                                     Command="{Binding CommandAddItem, Source={Reference root}}"
+                                     CommandParameter="{Binding .}"
+                                     Source="icons/plus.png"/>
 
                         <ContentView Grid.Row="1"
                                      Grid.ColumnSpan="4"
@@ -52,21 +60,21 @@
             <DataTemplate x:DataType="models:ServiceItem">
                 <Grid Margin="10,0"
                       Padding="25,8,10,8"
-                      BackgroundColor="White"
+                      BackgroundColor="{AppThemeBinding Light=#FFF, Dark=#111}"
                       ColumnDefinitions="*, 65, 50">
                     <Label FontSize="14"
                            Text="{Binding Name}"
-                           TextColor="#333"/>
+                           TextColor="{AppThemeBinding Light=#333, Dark=#CCC}"/>
 
                     <Label Grid.Column="1"
                            HorizontalTextAlignment="End"
                            Text="{Binding DurationOnMinutes, StringFormat='{0} min'}"
-                           TextColor="#333"/>
+                           TextColor="{AppThemeBinding Light=#333, Dark=#CCC}"/>
 
                     <Label Grid.Column="2"
                            HorizontalTextAlignment="End"
                            Text="{Binding Price, StringFormat='${0}'}"
-                           TextColor="#333"/>
+                           TextColor="{AppThemeBinding Light=#333, Dark=#CCC}"/>
                 </Grid>
             </DataTemplate>
         </list:VirtualList.ItemTemplate>
@@ -76,7 +84,7 @@
             <DataTemplate x:DataType="models:ServiceGroup">
                 <Border HeightRequest="15"
                         Margin="10,0,10,0"
-                        BackgroundColor="White"
+                        BackgroundColor="{AppThemeBinding Light=#FFF, Dark=#111}"
                         StrokeShape="RoundRectangle 0,0,20,20"
                         StrokeThickness="0"
                         TranslationY="-0.5"/>

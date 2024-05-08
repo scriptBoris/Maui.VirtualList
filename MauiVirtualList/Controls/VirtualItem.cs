@@ -75,6 +75,64 @@ public class VirtualItem : Layout, ILayoutManager
         return this;
     }
 
+    protected override void InvalidateMeasure()
+    {
+        base.InvalidateMeasure();
+    }
+
+    protected override void InvalidateMeasureOverride()
+    {
+        base.InvalidateMeasureOverride();
+    }
+
+    internal void ShiftDirect(int directLogicalIndex, int newLogicalIndex, SourceProvider source)
+    {
+        var context = source[newLogicalIndex];
+        var templateType = source.GetTypeItem(newLogicalIndex);
+
+        //this.BatchBegin();
+        if (templateType == TemplateType)
+        {
+            LogicIndex = directLogicalIndex;
+            _content.BindingContext = context;
+            DesiredSize = Size.Zero;
+            AwaitRecalcMeasure = true;
+        }
+        else
+        {
+            var parent = (BodyGroup)Parent;
+            var old = _content;
+            old.BindingContext = null;
+            Children.Remove(old);
+
+            if (_cache.TryGetValue(templateType, out var vv))
+            {
+                _content = vv;
+            }
+            else
+            {
+                var createdView = templateType switch
+                {
+                    DoubleTypes.Header => parent.GroupHeaderTemplate?.CreateContent() as View,
+                    DoubleTypes.Item => parent.ItemTemplate.CreateContent() as View,
+                    DoubleTypes.Footer => parent.GroupFooterTemplate?.CreateContent() as View,
+                    _ => throw new InvalidOperationException(),
+                } ?? throw new InvalidOperationException();
+
+                _content = createdView;
+                _cache.Add(templateType, _content);
+            }
+
+            TemplateType = templateType;
+            Children.Add(_content);
+            LogicIndex = directLogicalIndex;
+            _content.BindingContext = context;
+            DesiredSize = Size.Zero;
+            AwaitRecalcMeasure = true;
+        }
+        //this.BatchCommit();
+    }
+
     internal void Shift(int newLogicalIndex, SourceProvider source)
     {
         var context = source[newLogicalIndex];
@@ -84,7 +142,7 @@ public class VirtualItem : Layout, ILayoutManager
         if (templateType == TemplateType)
         {
             LogicIndex = newLogicalIndex;
-            _content.BindingContext = source[newLogicalIndex];
+            _content.BindingContext = context;
             DesiredSize = Size.Zero;
             AwaitRecalcMeasure = true;
         }

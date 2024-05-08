@@ -6,7 +6,6 @@ using Microsoft.Maui.Layouts;
 using MauiVirtualList.Enums;
 using MauiVirtualList.Utils;
 using MauiVirtualList.Structs;
-
 namespace MauiVirtualList.Controls;
 
 public class BodyGroup : Layout, ILayoutManager
@@ -14,10 +13,16 @@ public class BodyGroup : Layout, ILayoutManager
     private readonly ShifleCacheController _shifleController = new();
     private readonly CacheController _cacheController = new();
     private readonly DataTemplate _defaultItemTemplate = new(() => new Label { Text = "NO_TEMPLATE" });
+    private readonly IScroller _scroller;
+    private Size _redrawCache;
     private View? _emptyView;
-    private double _scrollY;
     private SourceProvider? ItemsSource;
-    private double _overrideEstimatedHeight = 0;
+    private bool isAfterDelete;
+
+    internal BodyGroup(IScroller scroller)
+    {
+        _scroller = scroller;
+    }
 
     #region bindable props
     // item template
@@ -79,14 +84,16 @@ public class BodyGroup : Layout, ILayoutManager
     #endregion bindable props
 
     #region props
+    public double ScrollY => _scroller.ScrollY;
     public int Cunt => ItemsSource != null ? ItemsSource.Count : 0;
     public double ItemsSpacing { get; set; }
-    public double ViewPortWidth { get; set; }
-    public double ViewPortHeight { get; set; }
-    public double ViewPortBottomLim => _scrollY + ViewPortHeight;
+    public double ViewPortWidth => _scroller.ViewPortWidth;
+    public double ViewPortHeight => _scroller.ViewPortHeight;
+    public double ViewPortBottomLim => ScrollY + ViewPortHeight;
+
+    public bool RequestRecalcEstimatedHeight { get; private set; } = true;
     public double AvgCellHeight { get; private set; } = -1;
-    public double EstimatedHeight => Cunt * AvgCellHeight;
-    public double EstimatedHeightCache {  get; private set; } = 0;
+    public double EstimatedHeight { get; private set; } = -1;// Cunt * AvgCellHeight;
 
     // TODO Убрать, вставка идет норм без этого
     [Obsolete("Убрать")]
@@ -97,30 +104,30 @@ public class BodyGroup : Layout, ILayoutManager
     {
         get
         {
-            if (ViewPortHeight >= EstimatedHeightCache)
+            if (ViewPortHeight >= EstimatedHeight)
                 return false;
 
-            double perc = ViewPortHeight / EstimatedHeightCache;
-            if (perc > 0.8 && ViewPortBottomLim.IsEquals(EstimatedHeightCache, 5))
+            double perc = ViewPortHeight / EstimatedHeight;
+            if (perc > 0.8 && ViewPortBottomLim.IsEquals(EstimatedHeight, 5))
                 return true;
 
-            return ViewPortBottomLim.IsEquals(EstimatedHeightCache, 5);
+            return ViewPortBottomLim.IsEquals(EstimatedHeight, 5);
         }
     }
     #endregion props
 
-    internal void SetupItemsSource(IList? o, IList? n)
+    internal void SetupItemsSource(IList? oldSource, IList? newSource)
     {
-        if (o is INotifyCollectionChanged old)
+        if (oldSource is INotifyCollectionChanged old)
             old.CollectionChanged -= OnCollectionChanged;
 
-        if (n is INotifyCollectionChanged newest)
+        if (newSource is INotifyCollectionChanged newest)
             newest.CollectionChanged += OnCollectionChanged;
 
         ItemsSource?.Dispose();
 
-        if (n is IList source)
-            ItemsSource = new(source, GroupHeaderTemplate != null, GroupFooterTemplate != null);
+        if (newSource != null)
+            ItemsSource = new(newSource, GroupHeaderTemplate != null, GroupFooterTemplate != null);
 
         Update(true, ViewPortWidth, ViewPortHeight);
     }
@@ -129,6 +136,7 @@ public class BodyGroup : Layout, ILayoutManager
     {
         if (isHardUpdate)
         {
+            RequestRecalcEstimatedHeight = true;
             for (var i = Children.Count - 1; i >= 0; i--)
             {
                 var item = Children[i];
@@ -139,19 +147,17 @@ public class BodyGroup : Layout, ILayoutManager
             _cacheController.Clear();
             ItemsSource?.Recalc(GroupHeaderTemplate != null, GroupFooterTemplate != null);
             ResolveEmptyView();
+
+            _redrawCache = Size.Zero;
+            this.HardInvalidateMeasure();
         }
 
-        ViewPortWidth = vp_width;
-        ViewPortHeight = vp_height;
         Scrolled(0, vp_width, vp_height);
     }
 
     public void Scrolled(double scrolledY, double vp_width, double vp_height)
     {
-        _scrollY = scrolledY;
-        _cacheController.UseViewFrame(ViewPortWidth, ViewPortHeight, scrolledY, scrolledY + ViewPortHeight);
-        ViewPortWidth = vp_width;
-        ViewPortHeight = vp_height;
+        _cacheController.UseViewFrame(ViewPortWidth, ViewPortHeight, scrolledY, ViewPortBottomLim);
 
         if (vp_height > DeviceDisplay.Current.MainDisplayInfo.Height)
             throw new InvalidOperationException("View port is very large!");
@@ -167,7 +173,8 @@ public class BodyGroup : Layout, ILayoutManager
         this.HardInvalidateMeasure();
 #else
         // Вызываем прямую перерисовку элементов (для повышения производительности)
-        ArrangeChildren(new Rect(0, 0, vp_width, Height));
+        Redraw();
+        //ArrangeChildren(new Rect(0, 0, vp_width, vp_height));
 #endif
     }
 
@@ -189,11 +196,53 @@ public class BodyGroup : Layout, ILayoutManager
 
     public Size ArrangeChildren(Rect bounds)
     {
-        if (ItemsSource == null || ViewPortWidth <= 0 || ViewPortHeight <= 0)
-            return bounds.Size;
+        if (_redrawCache == bounds.Size)
+            return _redrawCache;
+
+        var drawSize = Redraw();
+        return drawSize;
+    }
+
+    public Size Measure(double widthConstraint, double heightConstraint)
+    {
+        // Для удобной отладки
+        //if (isAfterDelete)
+        //    Debugger.Break();
+
+        double height = EstimatedHeight;
+        if (RequestRecalcEstimatedHeight)
+        {
+            _emptyView?.HardMeasure(ViewPortWidth, ViewPortHeight);
+            
+            foreach (var item in Children)
+                item.Measure(widthConstraint, heightConstraint);
+
+            if (AvgCellHeight < 0 && Cunt > 0)
+                InitStartedCells();
+
+            height = RecalcEstimateHeight();
+            RequestRecalcEstimatedHeight = false;
+        }
+
+        return new Size(widthConstraint, height);
+    }
+
+    protected override ILayoutManager CreateLayoutManager()
+    {
+        return this;
+    }
+
+    private Size Redraw()
+    {
+        if (ItemsSource == null || ViewPortWidth <= 0 || ViewPortHeight <= 0 || EstimatedHeight <= 0)
+            return new Size(ViewPortWidth, ViewPortHeight);
+
+        // Для удобной отладки
+        //if (isAfterDelete)
+        //    Debugger.Break();
 
         // 0: init view port
-        _cacheController.UseViewFrame(ViewPortWidth, ViewPortHeight, _scrollY, ViewPortBottomLim);
+        _cacheController.UseViewFrame(ViewPortWidth, ViewPortHeight, ScrollY, ViewPortBottomLim);
 
         // 1: find caches
         var middleStart = _cacheController.SearchCachesAndFirstMiddle();
@@ -203,9 +252,14 @@ public class BodyGroup : Layout, ILayoutManager
         // Данный алгоритм "смотрит вниз"
         var anchor = middleStart;
         double freeViewPort = ViewPortHeight;
-        double newOffsetY = anchor?.OffsetY ?? _scrollY;
+        double newOffsetY = anchor?.OffsetY ?? ScrollY;
         int indexPool = _cacheController.IndexOf(middleStart, 0);
-        int indexSource = anchor?.LogicIndex ?? CalcMethods.CalcIndexByY(_scrollY, EstimatedHeight, ItemsSource.Count);
+        int indexSource = anchor?.LogicIndex ?? CalcMethods.CalcIndexByY(ScrollY, EstimatedHeight, ItemsSource.Count);
+
+        // Для удобной отладки
+        //if (isAfterDelete)
+        //    Debugger.Break();
+
         while (true)
         {
             VirtualItem cell;
@@ -246,6 +300,10 @@ public class BodyGroup : Layout, ILayoutManager
             if (cell.IsCache)
             {
                 _cacheController.NoCache(cell);
+
+                if (indexSource >= ItemsSource.Count)
+                    Debugger.Break();
+
                 cell.Shift(indexSource, ItemsSource);
             }
 
@@ -258,7 +316,7 @@ public class BodyGroup : Layout, ILayoutManager
             cell.OffsetY = newOffsetY;
             newOffsetY += cellHeight;
 
-            var visiblePercent = CalcMethods.CalcVisiblePercent(cell.OffsetY, cell.BottomLim, _scrollY, ViewPortBottomLim);
+            var visiblePercent = CalcMethods.CalcVisiblePercent(cell.OffsetY, cell.BottomLim, ScrollY, ViewPortBottomLim);
             cell.CachedPercentVis = visiblePercent.Percent;
 
             double cellViewPortBusyHeight = cellHeight * visiblePercent.Percent;
@@ -287,7 +345,7 @@ public class BodyGroup : Layout, ILayoutManager
             if (anchor == null || anchor.LogicIndex == 0)
                 break;
 
-            var holeSize = CalcMethods.ChekHoleTop(_scrollY, ViewPortBottomLim, anchor);
+            var holeSize = CalcMethods.ChekHoleTop(ScrollY, ViewPortBottomLim, anchor);
             if (holeSize > 0)
             {
                 int index = anchor.LogicIndex - 1;
@@ -310,7 +368,7 @@ public class BodyGroup : Layout, ILayoutManager
 
                 cell.HardMeasure(ViewPortWidth, double.PositiveInfinity);
                 cell.OffsetY = anchor.OffsetY - cell.DrawedSize.Height;
-                cell.CachedPercentVis = CalcMethods.CalcVisiblePercent(cell.OffsetY, cell.BottomLim, _scrollY, ViewPortBottomLim).Percent;
+                cell.CachedPercentVis = CalcMethods.CalcVisiblePercent(cell.OffsetY, cell.BottomLim, ScrollY, ViewPortBottomLim).Percent;
                 anchor = cell;
             }
             else
@@ -335,7 +393,7 @@ public class BodyGroup : Layout, ILayoutManager
             rule = ShifleCacheRules.NoCacheBottom;
 
         _shifleController.Rule = rule;
-        _shifleController.ScrollTop = _scrollY;
+        _shifleController.ScrollTop = ScrollY;
         _shifleController.ScrollBottom = ViewPortBottomLim;
         while (true)
         {
@@ -391,7 +449,7 @@ public class BodyGroup : Layout, ILayoutManager
         }
 
         // Собственно, рисуем наш cachepool
-        Draw(bounds);
+        Draw(new Rect(0,0, ViewPortWidth, ViewPortHeight));
 
         // TODO приудмать с этим что-то
         bool isNoEnd = false;
@@ -405,45 +463,12 @@ public class BodyGroup : Layout, ILayoutManager
         if (isNoEnd)
         {
             //int dif = ItemsSource.Count - lst.LogicIndex;
-            _overrideEstimatedHeight = EstimatedHeight + 20;
+            EstimatedHeight = EstimatedHeight + 20;
             Debug.WriteLine($"OVERRIDED EstimatedHeight + 20!");
         }
-        else
-        {
-            _overrideEstimatedHeight = 0;
-        }
 
-        return new Size(bounds.Width, bounds.Height);
-    }
-
-    public Size Measure(double widthConstraint, double heightConstraint)
-    {
-        var p = Parent as VirtualList;
-
-        _emptyView?.HardMeasure(ViewPortWidth, ViewPortHeight);
-
-        foreach (var item in Children)
-            item.Measure(widthConstraint, heightConstraint);
-
-        AvgCellHeight = CalcAverageCellHeight();
-        double height = Cunt * AvgCellHeight;
-        double mheight = p?.MeasureHeight ?? 200;
-        if (height <= 0)
-            height = mheight;
-
-        EstimatedHeightCache = height;
-        if (height < mheight)
-            height = mheight;
-
-        if (_overrideEstimatedHeight > 0)
-            return new Size(widthConstraint, _overrideEstimatedHeight);
-
-        return new Size(widthConstraint, height);
-    }
-
-    protected override ILayoutManager CreateLayoutManager()
-    {
-        return this;
+        _redrawCache = new Size(ViewPortWidth, ViewPortHeight);
+        return _redrawCache;
     }
 
     private void Draw(Rect bounds)
@@ -602,30 +627,29 @@ public class BodyGroup : Layout, ILayoutManager
         }
     }
 
-    //internal void OffsetScrollAsRat(double scrollYAddValue)
-    //{
-    //    _scrollY += scrollYAddValue;
-    //    _cacheController.UseViewFrame(ViewPortWidth, ViewPortHeight, _scrollY, ViewPortBottomLim);
-    //    Frame = new Rect(0, 0, ViewPortWidth, ViewPortBottomLim);
-    //    _scrollView.ScrollToAsync(0, _scrollY, false);
-    //}
-
     private void OnCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
     {
+        if (!MainThread.IsMainThread)
+            throw new InvalidOperationException("Code is not running on the main thread.");
+
         var collection = ItemsSource!;
-        double changeHeight = 0;
+        double changeEstimatedHeight = 0;
         bool countChanged = true;
+        double scrollChange = 0;
         switch (e.Action)
         {
             case NotifyCollectionChangedAction.Add:
                 int newItemIndex = e.NewStartingIndex;
-                changeHeight = _cacheController.InsertCell(newItemIndex, collection, this);
+                changeEstimatedHeight = _cacheController.InsertCell(newItemIndex, collection, this);
                 break;
             case NotifyCollectionChangedAction.Remove:
+                isAfterDelete = true;
                 int rmItemIndex = e.OldStartingIndex;
-                var del = _cacheController.RemoveCell(rmItemIndex, collection, this);
-                if (del != null)
-                    Children.Remove(del);
+                var dels = _cacheController.RemoveCellAuto(rmItemIndex, collection, 
+                    out changeEstimatedHeight, 
+                    out scrollChange);
+                foreach (var item in dels)
+                    Children.Remove(item);
                 break;
             case NotifyCollectionChangedAction.Replace:
                 countChanged = false;
@@ -641,11 +665,40 @@ public class BodyGroup : Layout, ILayoutManager
                 break;
         }
 
-        if (changeHeight != 0)
-            this.HardInvalidateMeasure();
+        ItemsSource!.NotifySource_CollectionChanged(sender, e);
+
+        if (changeEstimatedHeight != 0)
+        {
+            AvgCellHeight = CalcAverageCellHeight();
+            EstimatedHeight += changeEstimatedHeight;
+        }
 
         if (countChanged)
             this.ResolveEmptyView();
+
+        if (scrollChange != 0)
+        {
+            double scroll = _scroller.ScrollY + scrollChange;
+            _scroller.SetScrollY(scroll);
+        }
+
+        if (changeEstimatedHeight != 0)
+            this.HardInvalidateMeasure();
+    }
+
+    public double RecalcEstimateHeight()
+    {
+        AvgCellHeight = CalcAverageCellHeight();
+        double result = Cunt * AvgCellHeight;
+        double vpHeight = ViewPortHeight;
+        if (result <= 0)
+            result = vpHeight;
+
+        EstimatedHeight = result;
+        if (result < vpHeight)
+            result = vpHeight;
+
+        return result;
     }
 
     private double CalcAverageCellHeight()
@@ -653,5 +706,31 @@ public class BodyGroup : Layout, ILayoutManager
         double res = _cacheController.CalcAverageCellHeight(ItemsSource);
         Debug.WriteLine($"AVG height: {res}");
         return res;
+    }
+
+    private void InitStartedCells()
+    {
+        int index = 0;
+        double newOffsetY = 0;
+        double freeViewPort = ViewPortHeight;
+        int maxIndex = ItemsSource!.Count - 1;
+
+        while (true)
+        {
+            if (index > maxIndex)
+                break;
+
+            if (freeViewPort <= 0) 
+                break;
+
+            var cell = BuildCell(index, -1);
+            cell.HardMeasure(ViewPortWidth, double.PositiveInfinity);
+            cell.OffsetY = newOffsetY;
+            cell.CachedPercentVis = CalcMethods.CalcVisiblePercent(cell.OffsetY, cell.BottomLim, ScrollY, ViewPortBottomLim).Percent;
+            
+            newOffsetY += cell.DrawedSize.Height;
+            freeViewPort -= cell.DrawedSize.Height;
+            index++;
+        }
     }
 }

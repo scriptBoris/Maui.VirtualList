@@ -9,33 +9,81 @@ public partial class PageGroupList
     public PageGroupList(int count)
     {
         InitializeComponent();
-        var rand = new Random();
-        var groups = new ObservableCollection<ItemGroup>();
-        for (int i = 0; i < count - 1; i++)
+        var groups = new ObservableCollection<ItemGroup>
         {
-            var group = new ItemGroup($"Group {i + 1}");
-            var itemsCount = rand.Next(1, 10);
-            for (int j = 0; j < itemsCount; j++)
+            new("Group", 1)
             {
-                group.Add(new ItemTest
+                ItemTest.Gen(1),
+                ItemTest.Gen(2),
+                ItemTest.Gen(3),
+                ItemTest.Gen(4),
+            },
+            new("Group", 2)
+            {
+                ItemTest.Gen(1),
+                ItemTest.Gen(2),
+                ItemTest.Gen(3),
+                ItemTest.Gen(4),
+                ItemTest.Gen(5),
+            },
+            new("Group", 3)
+            {
+                ItemTest.Gen(1),
+                ItemTest.Gen(2),
+                ItemTest.Gen(3),
+            },
+            new("Group", 4)
+            {
+                ItemTest.Gen(1),
+                ItemTest.Gen(2),
+            },
+            new("Group", 5)
+            {
+                ItemTest.Gen(1),
+                ItemTest.Gen(2),
+                ItemTest.Gen(3),
+                ItemTest.Gen(4),
+                ItemTest.Gen(5),
+                ItemTest.Gen(6),
+                ItemTest.Gen(7),
+                ItemTest.Gen(8),
+                ItemTest.Gen(9),
+                ItemTest.Gen(10),
+            },
+            new("Group", 6)
+            {
+                ItemTest.Gen(1),
+                ItemTest.Gen(2),
+            },
+            new("Group", 7)
+            {
+                ItemTest.Gen(1),
+                ItemTest.Gen(2),
+                ItemTest.Gen(3),
+            },
+            new("Group", 8)
+            {
+                ItemTest.Gen(1),
+                ItemTest.Gen(2),
+                ItemTest.Gen(3),
+            },
+            new("Group", 9)
+            {
+                new ItemTest
                 {
-                    Text = $"{RandomNameGenerator.GenerateRandomMaleFirstName()} {RandomNameGenerator.GenerateRandomLastName()}",
-                    Number = j + 1,
-                });
-            }
-            groups.Add(group);
-        }
-
-        var lastGroup = new ItemGroup($"Group {count} [last group]");
-        for (int j = 0; j < 5; j++)
-        {
-            lastGroup.Add(new ItemTest
+                    Number = 1,
+                    Text = "Single Item of GROUP9"
+                },
+            },
+            new("Group", 10)
             {
-                Text = $"{RandomNameGenerator.GenerateRandomMaleFirstName()} {RandomNameGenerator.GenerateRandomLastName()}",
-                Number = j + 1,
-            });
-        }
-        groups.Add(lastGroup);
+                ItemTest.Gen(1),
+                ItemTest.Gen(2),
+                ItemTest.Gen(3),
+                ItemTest.Gen(4),
+                ItemTest.Gen(5),
+            }
+        };
 
         list.ItemsSource = groups;
         Groups = groups;
@@ -100,35 +148,35 @@ public partial class PageGroupList
         //await list.ScrollToAsync(insert, animate: true);
     }
 
-    private async void ToolbarItem_RemoveItem(object sender, EventArgs e)
+    private async void ToolbarItem_RemoveGroup(object sender, EventArgs e)
     {
-        //var res = await this.DisplayPromptAsync("remove item", "Typing index of remove",
-        //    keyboard: Keyboard.Numeric,
-        //    placeholder: "-1 (as last)");
-        //if (res == null)
-        //    return;
+        var res = await this.DisplayPromptAsync("remove group", "Typing number of remove",
+            keyboard: Keyboard.Numeric,
+            placeholder: "-1 or 0 (as last)");
+        if (res == null)
+            return;
 
-        //int parse = -1;
+        int parse = -1;
 
-        //if (!string.IsNullOrEmpty(res))
-        //{
-        //    if (!int.TryParse(res, out parse))
-        //    {
-        //        await this.DisplayAlert("Error", "Bad input data", "OK");
-        //        return;
-        //    }
-        //}
+        if (!string.IsNullOrEmpty(res))
+        {
+            if (!int.TryParse(res, out parse))
+            {
+                await this.DisplayAlert("Error", "Bad input data", "OK");
+                return;
+            }
+        }
 
-        //int remove = parse;
-        //if (parse == -1 || parse > Items.Count)
-        //    remove = Items.Count - 1;
+        int removeNumber = parse;
+        if (parse <= 0 || parse > Groups.Count)
+            removeNumber = Groups.Count;
 
-        //Items.RemoveAt(remove);
+        Groups.RemoveAt(removeNumber - 1);
 
-        //for (int i = 0; i < Items.Count; i++)
-        //{
-        //    Items[i].Number = i + 1;
-        //}
+        for (int i = 0; i < Groups.Count; i++)
+        {
+            Groups[i].Number = i + 1;
+        }
     }
 
     private void ToolbarItem_ClearItems(object sender, EventArgs e)
