@@ -11,6 +11,8 @@ public class VirtualList :
     //ScrollViewProd
 {
     private readonly BodyGroup _body;
+    private double _cachedMeasureWidth;
+    private double _cachedMeasureHeight;
 
     public VirtualList()
     {
@@ -125,12 +127,17 @@ public class VirtualList :
 
     protected override Size MeasureOverride(double widthConstraint, double heightConstraint)
     {
-        if (widthConstraint == ViewPortWidth && heightConstraint == ViewPortHeight)
+        if (widthConstraint == _cachedMeasureWidth && heightConstraint == _cachedMeasureHeight)
             return new Size(ViewPortWidth, ViewPortHeight);
 
+        var res = base.MeasureOverride(widthConstraint, heightConstraint);
+        
         ViewPortWidth = widthConstraint - ScrollerWidth;
         ViewPortHeight = heightConstraint;
-        var res = base.MeasureOverride(widthConstraint, heightConstraint);
+
+        _cachedMeasureWidth = widthConstraint;
+        _cachedMeasureHeight = heightConstraint;
+
         return res;
     }
 }

@@ -136,7 +136,6 @@ public class BodyGroup : Layout, ILayoutManager
     {
         if (isHardUpdate)
         {
-            RequestRecalcEstimatedHeight = true;
             for (var i = Children.Count - 1; i >= 0; i--)
             {
                 var item = Children[i];
@@ -144,15 +143,19 @@ public class BodyGroup : Layout, ILayoutManager
                     continue;
                 Children.Remove(item);
             }
+
             _cacheController.Clear();
             ItemsSource?.Recalc(GroupHeaderTemplate != null, GroupFooterTemplate != null);
             ResolveEmptyView();
 
             _redrawCache = Size.Zero;
+            RequestRecalcEstimatedHeight = true;
             this.HardInvalidateMeasure();
         }
-
-        Scrolled(0, vp_width, vp_height);
+        else
+        {
+            Redraw();
+        }
     }
 
     public void Scrolled(double scrolledY, double vp_width, double vp_height)
@@ -196,7 +199,12 @@ public class BodyGroup : Layout, ILayoutManager
 
     public Size ArrangeChildren(Rect bounds)
     {
-        if (_redrawCache == bounds.Size)
+        double cacheW = _redrawCache.Width;
+        double cacheH = _redrawCache.Height;
+        double reqW = bounds.Size.Width;
+        double reqH = bounds.Size.Height;
+
+        if (cacheW.IsEquals(reqW) && cacheH.IsEquals(reqH))
             return _redrawCache;
 
         var drawSize = Redraw();

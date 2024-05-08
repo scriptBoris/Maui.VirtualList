@@ -12,7 +12,7 @@ public class ScrollViewTest : Layout, IScroller, ILayoutManager
     private double _lastY;
     private BodyGroup _content = null!;
     private VerticalSlider _progressLine;
-    private const double _progressWidth = 15;
+    private const double _progressWidthRequest = 15;
 
     public event EventHandler<ScrolledEventArgs>? Scrolled;
 
@@ -22,7 +22,7 @@ public class ScrollViewTest : Layout, IScroller, ILayoutManager
         pan.PanUpdated += Pan_PanUpdated;
         GestureRecognizers.Add(pan);
 
-        _progressLine = new VerticalSlider(_progressWidth);
+        _progressLine = new VerticalSlider(_progressWidthRequest);
         Children.Add(_progressLine);
     }
 
@@ -43,7 +43,7 @@ public class ScrollViewTest : Layout, IScroller, ILayoutManager
     public double ScrollY
     {
         get => -_scrollY;
-        set
+        private set
         {
             if (_scrollY != value)
             {
@@ -57,7 +57,7 @@ public class ScrollViewTest : Layout, IScroller, ILayoutManager
         }
     }
 
-    public double ScrollerWidth => _progressWidth;
+    public double ScrollerWidth => _progressLine.DesiredSize.Width;
     public double ViewPortWidth { get; set; } = 200;
     public double ViewPortHeight { get; set; } = 200;
     #endregion props
@@ -120,9 +120,9 @@ public class ScrollViewTest : Layout, IScroller, ILayoutManager
 
     public Size Measure(double widthConstraint, double heightConstraint)
     {
-        _progressLine.HardMeasure(_progressWidth, heightConstraint);
+        _progressLine.HardMeasure(_progressWidthRequest, heightConstraint);
 
-        double contentWidthConstraint = widthConstraint - _progressWidth;
+        double contentWidthConstraint = widthConstraint - _progressLine.DesiredSize.Width;
         double height;
 
         var res = Content.HardMeasure(contentWidthConstraint, heightConstraint);
@@ -140,12 +140,12 @@ public class ScrollViewTest : Layout, IScroller, ILayoutManager
 
     public Size ArrangeChildren(Rect bounds)
     {
-        double widthBody = bounds.Width - _progressWidth;
+        double widthBody = bounds.Width - _progressLine.DesiredSize.Width;
 
         var rect1 = new Rect(0, 0, widthBody, bounds.Height);
         Content.HardArrange(rect1);
 
-        var rect2 = new Rect(widthBody, 0, _progressWidth, bounds.Height);
+        var rect2 = new Rect(widthBody, 0, _progressLine.DesiredSize.Width, bounds.Height);
         _progressLine.HardArrange(rect2);
 
         return bounds.Size;
