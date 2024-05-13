@@ -641,29 +641,31 @@ public class BodyGroup : Layout, ILayoutManager
             throw new InvalidOperationException("Code is not running on the main thread.");
 
         var collection = ItemsSource!;
-        double changeEstimatedHeight = 0;
-        bool countChanged = true;
-        double scrollChange = 0;
+        double changedEstimatedHeight = 0;
+        double changedScrollY = 0;
+        bool changedCounts = true;
+        bool requestRedraw = false;
+
         switch (e.Action)
         {
             case NotifyCollectionChangedAction.Add:
                 int newItemIndex = e.NewStartingIndex;
-                changeEstimatedHeight = _cacheController.InsertCell(newItemIndex, collection, this);
+                changedEstimatedHeight = _cacheController.InsertCell(newItemIndex, collection, this);
                 break;
             case NotifyCollectionChangedAction.Remove:
                 isAfterDelete = true;
                 int rmItemIndex = e.OldStartingIndex;
                 var dels = _cacheController.RemoveCellAuto(rmItemIndex, collection, 
-                    out changeEstimatedHeight, 
-                    out scrollChange);
+                    out changedEstimatedHeight,
+                    out changedScrollY);
                 foreach (var item in dels)
                     Children.Remove(item);
                 break;
             case NotifyCollectionChangedAction.Replace:
-                countChanged = false;
+                changedCounts = false;
                 break;
             case NotifyCollectionChangedAction.Move:
-                countChanged = false;
+                changedCounts = false;
                 break;
             case NotifyCollectionChangedAction.Reset:
                 _cacheController.Clear();
@@ -675,23 +677,34 @@ public class BodyGroup : Layout, ILayoutManager
 
         ItemsSource!.NotifySource_CollectionChanged(sender, e);
 
-        if (changeEstimatedHeight != 0)
+        if (changedEstimatedHeight != 0)
         {
             AvgCellHeight = CalcAverageCellHeight();
-            EstimatedHeight += changeEstimatedHeight;
+            EstimatedHeight += changedEstimatedHeight;
         }
 
-        if (countChanged)
+        if (changedCounts)
             this.ResolveEmptyView();
 
-        if (scrollChange != 0)
+
+        if (changedEstimatedHeight != 0)
         {
-            double scroll = _scroller.ScrollY + scrollChange;
-            _scroller.SetScrollY(scroll);
+            RequestRecalcEstimatedHeight = true;
+            this.HardInvalidateMeasure();
+            requestRedraw = true;
         }
 
-        if (changeEstimatedHeight != 0)
-            this.HardInvalidateMeasure();
+        if (changedScrollY != 0)
+        {
+            double scroll = _scroller.ScrollY + changedScrollY;
+            _redrawCache = Size.Zero;
+            RequestRecalcEstimatedHeight = true;
+            _scroller.SetScrollY(scroll);
+            requestRedraw = true;
+        }
+
+        if (requestRedraw)
+            Redraw();
     }
 
     public double RecalcEstimateHeight()

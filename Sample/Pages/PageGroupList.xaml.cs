@@ -11,77 +11,74 @@ public partial class PageGroupList
         InitializeComponent();
         var groups = new ObservableCollection<ItemGroup>
         {
-            new("Group", 1)
+            new("A", 1)
             {
-                ItemTest.Gen(1),
-                ItemTest.Gen(2),
-                ItemTest.Gen(3),
-                ItemTest.Gen(4),
+                ItemTest.Gen(1, 'A'),
+                ItemTest.Gen(2, 'A'),
+                ItemTest.Gen(3, 'A'),
+                ItemTest.Gen(4, 'A'),
             },
-            new("Group", 2)
+            new("B", 2)
             {
-                ItemTest.Gen(1),
-                ItemTest.Gen(2),
-                ItemTest.Gen(3),
-                ItemTest.Gen(4),
-                ItemTest.Gen(5),
+                ItemTest.Gen(1, 'B'),
+                ItemTest.Gen(2, 'B'),
+                ItemTest.Gen(3, 'B'),
+                ItemTest.Gen(4, 'B'),
+                ItemTest.Gen(5, 'B'),
+                ItemTest.Gen(6, 'B'),
             },
-            new("Group", 3)
+            new("C", 3)
             {
-                ItemTest.Gen(1),
-                ItemTest.Gen(2),
-                ItemTest.Gen(3),
+                ItemTest.Gen(1, 'C'),
+                ItemTest.Gen(2, 'C'),
+                ItemTest.Gen(3, 'C'),
             },
-            new("Group", 4)
+            new("D", 4)
             {
-                ItemTest.Gen(1),
-                ItemTest.Gen(2),
+                ItemTest.Gen(1, 'D'),
+                ItemTest.Gen(2, 'D'),
             },
-            new("Group", 5)
+            new("E", 5)
             {
-                ItemTest.Gen(1),
-                ItemTest.Gen(2),
-                ItemTest.Gen(3),
-                ItemTest.Gen(4),
-                ItemTest.Gen(5),
-                ItemTest.Gen(6),
-                ItemTest.Gen(7),
-                ItemTest.Gen(8),
-                ItemTest.Gen(9),
-                ItemTest.Gen(10),
+                ItemTest.Gen(1, 'E'),
+                ItemTest.Gen(2, 'E'),
+                ItemTest.Gen(3, 'E'),
+                ItemTest.Gen(4, 'E'),
+                ItemTest.Gen(5, 'E'),
+                ItemTest.Gen(6, 'E'),
+                ItemTest.Gen(7, 'E'),
+                ItemTest.Gen(8, 'E'),
+                ItemTest.Gen(9, 'E'),
+                ItemTest.Gen(10, 'E'),
             },
-            new("Group", 6)
+            new("F", 6)
             {
-                ItemTest.Gen(1),
-                ItemTest.Gen(2),
+                ItemTest.Gen(1, 'F'),
+                ItemTest.Gen(2, 'F'),
             },
-            new("Group", 7)
+            new("G", 7)
             {
-                ItemTest.Gen(1),
-                ItemTest.Gen(2),
-                ItemTest.Gen(3),
+                ItemTest.Gen(1, 'G'),
+                ItemTest.Gen(2, 'G'),
+                ItemTest.Gen(3, 'G'),
             },
-            new("Group", 8)
+            new("H", 8)
             {
-                ItemTest.Gen(1),
-                ItemTest.Gen(2),
-                ItemTest.Gen(3),
+                ItemTest.Gen(1, 'H'),
+                ItemTest.Gen(2, 'H'),
+                ItemTest.Gen(3, 'H'),
             },
-            new("Group", 9)
+            new("I", 9)
             {
-                new ItemTest
-                {
-                    Number = 1,
-                    Text = "Single Item of GROUP9"
-                },
+                ItemTest.Gen(1, 'I'),
             },
-            new("Group", 10)
+            new("J", 10)
             {
-                ItemTest.Gen(1),
-                ItemTest.Gen(2),
-                ItemTest.Gen(3),
-                ItemTest.Gen(4),
-                ItemTest.Gen(5),
+                ItemTest.Gen(1, 'J'),
+                ItemTest.Gen(2, 'J'),
+                ItemTest.Gen(3, 'J'),
+                ItemTest.Gen(4, 'J'),
+                ItemTest.Gen(5, 'J'),
             }
         };
 

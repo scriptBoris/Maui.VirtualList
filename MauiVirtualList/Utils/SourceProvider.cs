@@ -1,10 +1,7 @@
 ﻿using MauiVirtualList.Enums;
 using System.Collections;
-using System.Collections.Generic;
 using System.Collections.Specialized;
 using System.Diagnostics;
-using System.Reflection.PortableExecutable;
-using System.Text.RegularExpressions;
 
 namespace MauiVirtualList.Utils;
 
@@ -14,8 +11,8 @@ internal class SourceProvider : IDisposable
     private readonly IList _source;
     private readonly IEnumerable<IEnumerable> _sourceAsGroups = null!;
     private readonly List<DoubleItem> _allItems = null!;
-    private readonly List<Header> _headers = null!;
-    private readonly List<Footer>? _footers;
+    private readonly List<HeaderFooter> _headers = null!;
+    private readonly List<HeaderFooter>? _footers;
     private byte _recalcCache = 0;
 
     public SourceProvider(IList source, bool useHeaders, bool useFooters)
@@ -115,7 +112,7 @@ internal class SourceProvider : IDisposable
             if (useHeaders)
             {
                 _allItems.Add(new DoubleItem(DoubleTypes.Header, group, itemIndex));
-                _headers.Add(new Header
+                _headers.Add(new HeaderFooter
                 {
                     Context = group,
                     WideIndex = itemIndex,
@@ -125,7 +122,7 @@ internal class SourceProvider : IDisposable
             }
             else
             {
-                _headers.Add(new Header
+                _headers.Add(new HeaderFooter
                 {
                     Context = group,
                     WideIndex = itemIndex,
@@ -144,7 +141,7 @@ internal class SourceProvider : IDisposable
             if (useFooters)
             {
                 _allItems.Add(new DoubleItem(DoubleTypes.Footer, group, itemIndex));
-                _footers.Add(new Footer
+                _footers.Add(new HeaderFooter
                 {
                     Context = group,
                     WideIndex = itemIndex,
@@ -174,6 +171,8 @@ internal class SourceProvider : IDisposable
                 if (newItem is INotifyCollectionChanged newItemNC)
                     newItemNC.CollectionChanged += InnerGroup_CollectionChanged;
 
+                // todo реализовать добавление элементов
+
                 break;
             case NotifyCollectionChangedAction.Remove:
                 {
@@ -190,18 +189,23 @@ internal class SourceProvider : IDisposable
                         rmCount++;
 
                     _allItems.RemoveRange(wideIndex, rmCount);
+                    _headers.Shift(rmIndex, -rmCount);
                     _headers.RemoveAt(rmIndex);
+
+                    _footers?.Shift(rmIndex, -rmCount);
                     _footers?.RemoveAt(rmIndex);
                 }
                 break;
             case NotifyCollectionChangedAction.Reset:
-                foreach (var item in e.OldItems)
+                foreach (var item in _headers)
                 {
-                    if (item is INotifyCollectionChanged resetItemNC)
+                    if (item.Context is INotifyCollectionChanged resetItemNC)
                         resetItemNC.CollectionChanged -= InnerGroup_CollectionChanged;
                 }
 
                 _allItems.Clear();
+                _headers.Clear();
+                _footers?.Clear();
                 break;
             case NotifyCollectionChangedAction.Replace:
             case NotifyCollectionChangedAction.Move:
@@ -227,13 +231,7 @@ internal class SourceProvider : IDisposable
         }
     }
 
-    private class Header
-    {
-        public required int WideIndex { get; set; }
-        public required object Context { get; set; }
-    }
-
-    private class Footer
+    internal class HeaderFooter
     {
         public required int WideIndex { get; set; }
         public required object Context { get; set; }

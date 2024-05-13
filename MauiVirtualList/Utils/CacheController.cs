@@ -349,76 +349,154 @@ internal class CacheController
         if (isAlgorithmUp)
         {
             double heightRm = 0;
-            double startOffsetY = 0;
-            int startOffsetIndex = 0;
-            VirtualItem? start = null;
+            
+            // кол-во элементов, которые будут удалены, но уже за пределами viewport
+            int invisibleCount = count;
+            
+            // точка старта, куда по scroll y будут вставлены следующие элементы
+            double startOffsetY = -1;
+            int startOffsetLogicIndex = -1;
+
+            double currentOffsetY = _cachePool.First().OffsetY;
+            VirtualItem? topDeletedItem = null;
+
             for (int i = 0; i < _cachePool.Count; i++)
             {
                 var cell = _cachePool[i];
                 int cellindex = cell.LogicIndex;
                 if (cellindex >= startWideIndex && endWideIndex >= cellindex)
                 {
-                    if (start == null)
-                    {
-                        start = cell;
-                        startOffsetIndex = cell.LogicIndex;
-                    }
+                    // находим верхний удаляемый элемент
+                    if (topDeletedItem == null)
+                        topDeletedItem = cell;
 
                     removedCells.Add(cell);
-                    heightRm += cell.DrawedSize.Height;
                     _cachePool.Remove(cell);
+                    heightRm += cell.DrawedSize.Height;
+                    invisibleCount--;
                     i--;
                 }
-                else if (start != null)
+                // смещаем неудаляемые "нижние" элементы вверх
+                // чтобы потом под них засунуть новые элементы
+                else if (topDeletedItem != null)
                 {
+                    double rmh = (invisibleCount * AvgCellHeight) + heightRm;
                     cell.LogicIndex -= count;
-                    cell.OffsetY -= heightRm;
+                    cell.OffsetY -= rmh;
                     startOffsetY = cell.BottomLim;
-                    startOffsetIndex = cell.LogicIndex + 1;
+                    startOffsetLogicIndex = cell.LogicIndex + 1;
                 }
+            }
+
+            if (invisibleCount < 0)
+                throw new InvalidOperationException();
+
+            if (removedCells.Count == 0)
+            {
+                int stl = _cachePool.First().LogicIndex;
+                rmHeight = AvgCellHeight * invisibleCount;
+
+                // Если удалили за viewport
+                // выше viewport
+                if (startWideIndex < stl)
+                {
+                    foreach (var item in _cachePool)
+                    {
+                        item.OffsetY -= rmHeight;
+                        item.LogicIndex -= invisibleCount;
+                    }
+                    changedScrollY = -rmHeight;
+                }
+                // ниже viewport
+                else
+                {
+                    changedScrollY = 0;
+                }
+                return [];
+            }
+
+            if (invisibleCount > 0)
+            {
+                heightRm += invisibleCount * AvgCellHeight;
+            }
+
+            if (startOffsetY < 0)
+            {
+                if (_cachePool.Count == 0)
+                {
+                    startOffsetY = currentOffsetY - (invisibleCount * AvgCellHeight);
+                }
+                else
+                {
+                    startOffsetY = _cachePool.Last().BottomLim;
+                }
+            }
+
+            if (startOffsetLogicIndex < 0)
+            {
+                startOffsetLogicIndex = startWideIndex;
             }
 
             // rm cache
-            int offDirect = startOffsetIndex;
-            int off = startOffsetIndex + removedCells.Count;
+            int setDirectIndex = startOffsetLogicIndex;
             double offHeight = 0;
             foreach (var rmcell in removedCells)
             {
+                int newLogicalIndex = setDirectIndex + count;
+
                 _cachePool.Add(rmcell);
                 rmcell.OffsetY = startOffsetY + offHeight;
-                rmcell.ShiftDirect(offDirect, off, source);
+                rmcell.ShiftDirect(setDirectIndex, newLogicalIndex, source);
                 rmcell.HardMeasure(ViewPortWidth, double.PositiveInfinity);
 
                 offHeight += rmcell.DrawedSize.Height;
-                offDirect++;
-                off++;
+                setDirectIndex++;
             }
-            rmHeight = heightRm;
+            rmHeight = -heightRm;
         }
         // Удаляем элементы снизу-вверх (если была удалена последяя группа)
         else
         {
             double heightRm = 0;
-            double startOffsetY = 0;
-            int startOffsetIndex = 0;
             VirtualItem? start = null;
-            for (int i = 0; i < _cachePool.Count; i++)
+            VirtualItem last = _cachePool.First();
+            int totalRemoved = 0;
+
+            for (int i = _cachePool.Count - 1; i >= 0; i--)
             {
                 var cell = _cachePool[i];
                 int cellindex = cell.LogicIndex;
                 if (cellindex >= startWideIndex && endWideIndex >= cellindex)
                 {
-                    removedCells.Add(cell);
+                    removedCells.Insert(0, cell);
                     heightRm += cell.DrawedSize.Height;
                     _cachePool.Remove(cell);
-                    i--;
+                    totalRemoved++;
                 }
-                else if (start == null)
+                else if (i == 0)
                 {
                     start = cell;
-                    startOffsetIndex = cell.LogicIndex;
-                    startOffsetY = cell.OffsetY;
                 }
+            }
+
+            double startOffsetY;
+            int startOffsetIndex;
+
+            if (start != null)
+            {
+                startOffsetIndex = start.LogicIndex;
+                startOffsetY = start.OffsetY;
+            }
+            else
+            {
+                int invisibleCounts = count - totalRemoved;
+                startOffsetIndex = last.LogicIndex - invisibleCounts;
+                startOffsetY = last.OffsetY - last.DrawedSize.Height;
+
+                // Делаем поправки на количество элементов, которых нет на экране,
+                // но они всё равно были удалены
+                heightRm += invisibleCounts * AvgCellHeight;
+                startOffsetY -= invisibleCounts * AvgCellHeight;
             }
 
             int insertId = startOffsetIndex - 1;
@@ -433,6 +511,7 @@ internal class CacheController
                 cell.OffsetY = offY;
                 _cachePool.Insert(0, cell);
             }
+
             rmHeight = -heightRm;
             changedScrollY = -heightRm;
         }
@@ -563,6 +642,7 @@ internal class CacheController
         if (lst.Count > 0)
             result = lst.Average();
 
+        AvgCellHeight = result;
         return result;
 
         //double fullHeaders = source.CountHeaders * avgH;

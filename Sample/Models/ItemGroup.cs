@@ -3,7 +3,7 @@ using System.Diagnostics;
 
 namespace Sample.Models;
 
-[DebuggerDisplay("#{Number} {GroupName} / init id:{InitId}")]
+[DebuggerDisplay("{DEBUGINFO}")]
 public class ItemGroup : ObservableCollection<ItemTest>
 {
     public ItemGroup(string groupName, int number)
@@ -16,6 +16,8 @@ public class ItemGroup : ObservableCollection<ItemTest>
     public string GroupName { get; set; }
     public int Number { get; set; }
     public int InitId { get; set; }
+
+    public string DEBUGINFO => ToString();
 
     public override string ToString()
     {

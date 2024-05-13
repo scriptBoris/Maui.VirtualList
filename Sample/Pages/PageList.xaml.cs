@@ -12,11 +12,7 @@ public partial class PageList
         var items = new ObservableCollection<ItemTest>();
         for (int i = 0; i < count; i++)
         {
-            items.Add(new ItemTest
-            {
-                Text = $"{RandomNameGenerator.GenerateRandomMaleFirstName()} {RandomNameGenerator.GenerateRandomLastName()}",
-                Number = i + 1,
-            });
+            items.Add(ItemTest.Gen(i + 1));
         }
         list.ItemsSource = items;
         Items = items;
@@ -67,11 +63,7 @@ public partial class PageList
         if (parse == -1 || parse > Items.Count)
             insert = Items.Count;
 
-        Items.Insert(insert, new ItemTest
-        {
-            Text = "NEW ITEM",
-            Number = insert + 1,
-        });
+        Items.Insert(insert, new ItemTest(insert + 1, "NEW ITEM"));
 
         for (int i = insert; i < Items.Count; i++)
         {

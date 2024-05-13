@@ -11,11 +11,7 @@ public partial class PageListMaui
         var items = new ObservableCollection<ItemTest>();
         for (int i = 0; i < 50; i++)
         {
-            items.Add(new ItemTest
-            {
-                Text = "TEST ITEM",
-                Number = i + 1,
-            });
+            items.Add(new ItemTest(i + 1, "TEST ITEM"));
         }
         list.ItemsSource = items;
         Items = items;
@@ -67,11 +63,7 @@ public partial class PageListMaui
         if (parse == -1 || parse > Items.Count)
             insert = Items.Count;
 
-        Items.Insert(insert, new ItemTest
-        {
-            Text = "NEW ITEM",
-            Number = insert + 1,
-        });
+        Items.Insert(insert, new ItemTest(insert + 1, "NEW ITEM"));
 
         for (int i = insert; i < Items.Count; i++)
         {

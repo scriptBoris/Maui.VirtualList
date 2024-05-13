@@ -6,7 +6,7 @@ using System.Diagnostics;
 
 namespace MauiVirtualList.Controls;
 
-[DebuggerDisplay("Index: {LogicIndex}; OffsetY: {OffsetY}; Vis: {CachedPercentVis}")]
+[DebuggerDisplay("Index: {LogicIndex}; OffsetY: {OffsetY}; Vis: {CachedPercentVis} | {DBGINFO}")]
 public class VirtualItem : Layout, ILayoutManager
 {
     private readonly Dictionary<DoubleTypes, View> _cache = [];
