@@ -1,5 +1,6 @@
 ﻿using System.Collections;
 using System.Collections.Specialized;
+using System.ComponentModel;
 using System.Diagnostics;
 using MauiVirtualList.Controls;
 using MauiVirtualList.Utils;
@@ -97,27 +98,47 @@ public class VirtualList :
     }
     #endregion bindable props
 
+    /// <summary>
+    /// Percent scrolling
+    /// </summary>
+    /// <param name="percent">0.0 - 0 percent (top)<br/>1.0 - 100 percent (bottom)</param>
+    /// <param name="animated"></param>
     public Task ScrollToAsync(double percent, bool animated)
     {
         var h = _body.Height * percent;
         return base.ScrollToAsync(0, h, animated);
     }
 
-    public async Task ScrollToAsync(int index,
-        int groupIndex = -1,
-        ScrollToPosition position = ScrollToPosition.MakeVisible,
-        bool animate = true)
+    /// <summary>
+    /// Scrolling to element
+    /// </summary>
+    /// <param name="item">item or group item</param>
+    /// <param name="position"></param>
+    /// <param name="animate"></param>
+    public Task ScrollToAsync(object item, ScrollToPosition position = ScrollToPosition.MakeVisible, bool animate = true)
     {
+        int index = ItemsSource?.IndexOf(item) ?? -1;
+        if (index == -1)
+            return Task.CompletedTask;
+
         double y = _body.GetYItem(index);
-        await Task.Delay(5);
-        await base.ScrollToAsync(0, y, animate);
+        return base.ScrollToAsync(0, y, animate);
     }
 
-    public Task ScrollToAsync(object item, object group = null,
-        ScrollToPosition position = ScrollToPosition.MakeVisible, bool animate = true)
+    public async Task ScrollToAsync(int index, int groupIndex, ScrollToPosition position = ScrollToPosition.MakeVisible, bool animate = true)
     {
+        //double y = _body.GetYItem(index);
+        //await Task.Delay(5);
+        //await base.ScrollToAsync(0, y, animate);
         throw new NotImplementedException();
     }
+
+    //[Obsolete("No implement", true)]
+    //[EditorBrowsable(EditorBrowsableState.Never)]
+    //public new Task ScrollToAsync(double x, double y, bool animated)
+    //{
+    //    throw new NotImplementedException();
+    //}
 
     private void VirtualList_Scrolled(object? sender, ScrolledEventArgs e)
     {

@@ -85,6 +85,7 @@ public class VirtualItem : Layout, ILayoutManager
         base.InvalidateMeasureOverride();
     }
 
+    // todo удалить?
     internal void ShiftDirect(int directLogicalIndex, int newLogicalIndex, SourceProvider source)
     {
         var context = source[newLogicalIndex];

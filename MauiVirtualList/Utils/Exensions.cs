@@ -35,7 +35,7 @@ public static class Exensions
             return 0;
     }
 
-    internal static void Shift(this IList<SourceProvider.HeaderFooter> source, int startFrom, int shiftOffset)
+    internal static void Shift(this IList<SourceProvider.Group> source, int startFrom, int shiftOffset)
     {
         for (int i = startFrom; i < source.Count; i++)
         {

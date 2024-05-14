@@ -118,16 +118,21 @@ public class BodyGroup : Layout, ILayoutManager
 
     internal void SetupItemsSource(IList? oldSource, IList? newSource)
     {
-        if (oldSource is INotifyCollectionChanged old)
-            old.CollectionChanged -= OnCollectionChanged;
-
-        if (newSource is INotifyCollectionChanged newest)
-            newest.CollectionChanged += OnCollectionChanged;
-
-        ItemsSource?.Dispose();
+        if (ItemsSource != null)
+        {
+            ItemsSource.ItemsAdded -= ItemsSource_ItemsAdded;
+            ItemsSource.ItemsRemoved -= ItemsSource_ItemsRemoved;
+            ItemsSource.ItemsCleared -= ItemsSource_ItemsCleared;
+            ItemsSource.Dispose();
+        }
 
         if (newSource != null)
+        {
             ItemsSource = new(newSource, GroupHeaderTemplate != null, GroupFooterTemplate != null);
+            ItemsSource.ItemsAdded += ItemsSource_ItemsAdded;
+            ItemsSource.ItemsRemoved += ItemsSource_ItemsRemoved;
+            ItemsSource.ItemsCleared += ItemsSource_ItemsCleared;
+        }
 
         Update(true, ViewPortWidth, ViewPortHeight);
     }
@@ -635,48 +640,40 @@ public class BodyGroup : Layout, ILayoutManager
         }
     }
 
-    private void OnCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
+    private void ItemsSource_ItemsAdded(int wideindexStart, object[] items)
     {
-        if (!MainThread.IsMainThread)
-            throw new InvalidOperationException("Code is not running on the main thread.");
-
         var collection = ItemsSource!;
-        double changedEstimatedHeight = 0;
-        double changedScrollY = 0;
+        _cacheController.InsertCells(wideindexStart, items, collection, (id) => BuildCell(id, null),
+            out double rmHeight,
+            out double changedScrollY);
+
+        this.ResolveEmptyView();
+
+        AvgCellHeight = CalcAverageCellHeight();
+        EstimatedHeight += rmHeight;
+
+        RequestRecalcEstimatedHeight = true;
+        this.HardInvalidateMeasure();
+
+        _redrawCache = Size.Zero;
+        Redraw();
+    }
+
+    private void ItemsSource_ItemsRemoved(int wideindexStart, int countDeletedItems)
+    {
+        var collection = ItemsSource!;
         bool changedCounts = true;
         bool requestRedraw = false;
 
-        switch (e.Action)
-        {
-            case NotifyCollectionChangedAction.Add:
-                int newItemIndex = e.NewStartingIndex;
-                changedEstimatedHeight = _cacheController.InsertCell(newItemIndex, collection, this);
-                break;
-            case NotifyCollectionChangedAction.Remove:
-                isAfterDelete = true;
-                int rmItemIndex = e.OldStartingIndex;
-                var dels = _cacheController.RemoveCellAuto(rmItemIndex, collection, 
-                    out changedEstimatedHeight,
-                    out changedScrollY);
-                foreach (var item in dels)
-                    Children.Remove(item);
-                break;
-            case NotifyCollectionChangedAction.Replace:
-                changedCounts = false;
-                break;
-            case NotifyCollectionChangedAction.Move:
-                changedCounts = false;
-                break;
-            case NotifyCollectionChangedAction.Reset:
-                _cacheController.Clear();
-                Clear();
-                break;
-            default:
-                break;
-        }
+        var dels = _cacheController.RemoveCells(wideindexStart, countDeletedItems, 
+            collection,
+            out double changedEstimatedHeight,
+            out double changedScrollY);
 
-        ItemsSource!.NotifySource_CollectionChanged(sender, e);
+        foreach (var item in dels)
+            Children.Remove(item);
 
+        // redraw actions
         if (changedEstimatedHeight != 0)
         {
             AvgCellHeight = CalcAverageCellHeight();
@@ -685,7 +682,6 @@ public class BodyGroup : Layout, ILayoutManager
 
         if (changedCounts)
             this.ResolveEmptyView();
-
 
         if (changedEstimatedHeight != 0)
         {
@@ -705,6 +701,23 @@ public class BodyGroup : Layout, ILayoutManager
 
         if (requestRedraw)
             Redraw();
+    }
+
+    private void ItemsSource_ItemsCleared()
+    {
+        foreach (var item in _cacheController.ExclusiveCachePool)
+            Children.Remove(item);
+
+        _cacheController.Clear();
+
+        this.ResolveEmptyView();
+
+        _redrawCache = Size.Zero;
+        RequestRecalcEstimatedHeight = true;
+
+        _scroller.SetScrollY(0);
+        this.HardInvalidateMeasure();
+        Redraw();
     }
 
     public double RecalcEstimateHeight()

@@ -4,35 +4,48 @@
              x:Class="Sample.Pages.MainPage"
              Title="Test virtual list"
              Padding="20">
-    <StackLayout Spacing="10">
-        <Label Text="Test labs"/>
-        <Button Clicked="Button_ClickedTestList50"
-                Text="Open virtual list (50)"/>
+    <ScrollView>
+        <StackLayout Spacing="10">
+            <!--test labs-->
+            <Label Text="Test labs"/>
+            <Button Clicked="Button_ClickedTestList50"
+                    Text="Open virtual list (50)"/>
 
-        <Button Clicked="Button_ClickedTestList2"
-                Text="Open virtual list (2)"/>
+            <Button Clicked="Button_ClickedTestList2"
+                    Text="Open virtual list (2)"/>
 
-        <Button Clicked="Button_ClickedTestList0"
-                Text="Open virtual list (0)"/>
+            <Button Clicked="Button_ClickedTestList0"
+                    Text="Open virtual list (0)"/>
 
-        <Button Clicked="Button_Groups10"
-                Text="Open virtual group list (10)"/>
+            <!--groups-->
+            <Label Text="Test labs (Groups)"/>
+            <Button Clicked="Button_Groups10"
+                    Text="Open virtual group list (10)"/>
 
-        <Label Text="Samples"/>
-        <Button Clicked="Button_ClickedAdvanceList"
-                Text="Open advanced virtual list"/>
+            <Button Clicked="Button_Groups1"
+                    Text="Open virtual group list (1)"/>
 
-        <Button Clicked="Button_ClickedAdvanceGroupList"
-                Text="Advance group virtual list"/>
+            <Button Clicked="Button_Groups0"
+                    Text="Open virtual group list (0)"/>
 
-        <Label Text="MAUI"/>
-        <Button Clicked="Button_Clicked_1"
-                Text="Open bindable vertical list (MAUI)"/>
+            <!--samples-->
+            <Label Text="Samples"/>
+            <Button Clicked="Button_ClickedAdvanceList"
+                    Text="Open advanced virtual list"/>
 
-        <Button Clicked="Button_Clicked_3"
-                Text="Open Collection view (MAUI)"/>
+            <Button Clicked="Button_ClickedAdvanceGroupList"
+                    Text="Advance group virtual list"/>
 
-        <Button Clicked="Button_Clicked_4"
-                Text="Open virtual list (MAUI)"/>
-    </StackLayout>
+            <!--maui-->
+            <Label Text="MAUI"/>
+            <Button Clicked="Button_Clicked_1"
+                    Text="Open bindable vertical list (MAUI)"/>
+
+            <Button Clicked="Button_Clicked_3"
+                    Text="Open Collection view (MAUI)"/>
+
+            <Button Clicked="Button_Clicked_4"
+                    Text="Open virtual list (MAUI)"/>
+        </StackLayout>
+    </ScrollView>
 </ContentPage>

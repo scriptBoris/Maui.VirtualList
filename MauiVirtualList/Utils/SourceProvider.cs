@@ -5,15 +5,22 @@ using System.Diagnostics;
 
 namespace MauiVirtualList.Utils;
 
+internal delegate void SourceHandler_Insert(int wideindexStart, object[] items);
+internal delegate void SourceHandler_Removed(int wideindexStart, int countDeletedItems);
+internal delegate void SourceHandler_Cleared();
+
 internal class SourceProvider : IDisposable
 {
     private readonly bool _isGroups;
     private readonly IList _source;
     private readonly IEnumerable<IEnumerable> _sourceAsGroups = null!;
-    private readonly List<DoubleItem> _allItems = null!;
-    private readonly List<HeaderFooter> _headers = null!;
-    private readonly List<HeaderFooter>? _footers;
+    private readonly List<SourceItem> _allItems = null!;
+    private readonly List<Group> _groups = null!;
     private byte _recalcCache = 0;
+
+    public event SourceHandler_Insert? ItemsAdded;
+    public event SourceHandler_Removed? ItemsRemoved;
+    public event SourceHandler_Cleared? ItemsCleared;
 
     public SourceProvider(IList source, bool useHeaders, bool useFooters)
     {
@@ -24,23 +31,13 @@ internal class SourceProvider : IDisposable
             _isGroups = true;
             _sourceAsGroups = groups;
             _allItems = [];
-            _headers = [];
-
-            if (useFooters)
-                _footers = [];
+            _groups = [];
 
             Recalc(useHeaders, useFooters);
+        }
 
-            foreach (var group in groups)
-            {
-                if (group is INotifyCollectionChanged groupNC)
-                    groupNC.CollectionChanged += InnerGroup_CollectionChanged;
-            }
-        }
-        else
-        {
-            CountJustItems = source.Count;
-        }
+        if (source is INotifyCollectionChanged collection)
+            collection.CollectionChanged += MainCollection_CollectionChanged;
     }
 
     #region props
@@ -74,9 +71,6 @@ internal class SourceProvider : IDisposable
     public bool IsGroups => _isGroups;
     public bool UsedHeaders { get; private set; }
     public bool UsedFooters { get; private set; }
-    public int CountJustItems { get; private set; }
-    public int CountHeaders { get; private set; }
-    public int CountFooters { get; private set; }
     #endregion props
 
     internal DoubleTypes GetTypeItem(int index)
@@ -96,57 +90,34 @@ internal class SourceProvider : IDisposable
             return;
 
         _allItems.Clear();
-        _headers.Clear();
-        _footers?.Clear();
+        _groups.Clear();
         _recalcCache = newCache;
-        CountHeaders = 0;
-        CountJustItems = 0;
-        CountFooters = 0;
         UsedHeaders = useHeaders;
         UsedFooters = useFooters;
 
         int itemIndex = 0;
         foreach (var group in _sourceAsGroups)
         {
+            _groups.Add(new Group(this, group, itemIndex, useHeaders, useFooters));
+
             // header
             if (useHeaders)
             {
-                _allItems.Add(new DoubleItem(DoubleTypes.Header, group, itemIndex));
-                _headers.Add(new HeaderFooter
-                {
-                    Context = group,
-                    WideIndex = itemIndex,
-                });
-                CountHeaders++;
+                _allItems.Add(new SourceItem(DoubleTypes.Header, group));
                 itemIndex++;
-            }
-            else
-            {
-                _headers.Add(new HeaderFooter
-                {
-                    Context = group,
-                    WideIndex = itemIndex,
-                });
             }
 
             // items
             foreach (var item in group)
             {
-                _allItems.Add(new DoubleItem(DoubleTypes.Item, item, itemIndex));
-                CountJustItems++;
+                _allItems.Add(new SourceItem(DoubleTypes.Item, item));
                 itemIndex++;
             }
 
             // footer
             if (useFooters)
             {
-                _allItems.Add(new DoubleItem(DoubleTypes.Footer, group, itemIndex));
-                _footers.Add(new HeaderFooter
-                {
-                    Context = group,
-                    WideIndex = itemIndex,
-                });
-                CountFooters++;
+                _allItems.Add(new SourceItem(DoubleTypes.Footer, group));
                 itemIndex++;
             }
         }
@@ -154,101 +125,304 @@ internal class SourceProvider : IDisposable
 
     internal int GetWideIndexOfHead(int logicGroupIndex)
     {
-        var h = _headers[logicGroupIndex];
+        var h = _groups[logicGroupIndex];
         return h.WideIndex;
     }
 
-    internal void NotifySource_CollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
+    //internal void NotifySource_CollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
+    //{
+    //    if (!_isGroups)
+    //        return;
+
+    //    switch (e.Action)
+    //    {
+    //        case NotifyCollectionChangedAction.Add:
+    //            var newItem = (IList)e.NewItems![0]!;
+    //            int newInsert = e.NewStartingIndex;
+    //            if (newItem is INotifyCollectionChanged newItemNC)
+    //                newItemNC.CollectionChanged += InnerGroup_CollectionChanged;
+
+    //            // todo реализовать добавление элементов
+
+    //            break;
+    //        case NotifyCollectionChangedAction.Remove:
+    //            {
+    //                int rmIndex = e.OldStartingIndex;
+    //                var rmItem = (IList)e.OldItems![0]!;
+    //                if (rmItem is INotifyCollectionChanged rmItemNC)
+    //                    rmItemNC.CollectionChanged -= InnerGroup_CollectionChanged;
+
+    //                int wideIndex = GetWideIndexOfHead(rmIndex);
+    //                int rmCount = rmItem.Count;
+    //                if (UsedHeaders)
+    //                    rmCount++;
+    //                if (UsedFooters)
+    //                    rmCount++;
+
+    //                _allItems.RemoveRange(wideIndex, rmCount);
+    //                _groups.Shift(rmIndex, -rmCount);
+    //                _groups.RemoveAt(rmIndex);
+
+    //                _footers?.Shift(rmIndex, -rmCount);
+    //                _footers?.RemoveAt(rmIndex);
+    //            }
+    //            break;
+    //        case NotifyCollectionChangedAction.Reset:
+    //            foreach (var item in _groups)
+    //            {
+    //                if (item.Context is INotifyCollectionChanged resetItemNC)
+    //                    resetItemNC.CollectionChanged -= InnerGroup_CollectionChanged;
+    //            }
+
+    //            _allItems.Clear();
+    //            _groups.Clear();
+    //            break;
+    //        case NotifyCollectionChangedAction.Replace:
+    //        case NotifyCollectionChangedAction.Move:
+    //        default:
+    //            throw new NotImplementedException();
+    //    }
+    //}
+
+    internal void InnerGroup_CollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
     {
-        if (!_isGroups)
-            return;
+        if (!MainThread.IsMainThread)
+            throw new InvalidOperationException("Code is not running on the main thread.");
+
+        throw new NotImplementedException();
+    }
+
+    private void MainCollection_CollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
+    {
+        if (!MainThread.IsMainThread)
+            throw new InvalidOperationException("Code is not running on the main thread.");
 
         switch (e.Action)
         {
             case NotifyCollectionChangedAction.Add:
-                var newItem = (IList)e.NewItems![0]!;
-                int newInsert = e.NewStartingIndex;
-                if (newItem is INotifyCollectionChanged newItemNC)
-                    newItemNC.CollectionChanged += InnerGroup_CollectionChanged;
+                var newGroupItem = e.NewItems![0]!;
+                int newGroupIndex = e.NewStartingIndex;
+                if (IsGroups)
+                {
+                    int wideIndex;
+                    int prevIndex = newGroupIndex - 1;
+                    if (prevIndex < 0)
+                    {
+                        wideIndex = 0;
+                    }
+                    else
+                    {
+                        var prev = _groups[prevIndex];
+                        wideIndex = prev.WideIndex + prev.CountElements;
+                    }
 
-                // todo реализовать добавление элементов
+                    var newHeader = new Group(this, newGroupItem, wideIndex, UsedHeaders, UsedFooters);
+                    _groups.Insert(newGroupIndex, newHeader);
 
+                    int index = wideIndex;
+                    // header
+                    if (UsedHeaders)
+                    {
+                        _allItems.Insert(index, new SourceItem(DoubleTypes.Header, newGroupItem));
+                        index++;
+                    }
+
+                    // items
+                    if (newGroupItem is IEnumerable enumerable)
+                    {
+                        foreach (var item in enumerable)
+                        {
+                            _allItems.Insert(index, new SourceItem(DoubleTypes.Item, item));
+                            index++;
+                        }
+                    }
+                    else
+                    {
+                        _allItems.Insert(index, new SourceItem(DoubleTypes.Item, newGroupItem));
+                        index++;
+                    }
+
+                    // footer
+                    if (UsedFooters)
+                    {
+                        _allItems.Insert(index, new SourceItem(DoubleTypes.Footer, newGroupItem));
+                    }
+
+                    // shift under groups
+                    for (int i = newGroupIndex + 1; i < _groups.Count; i++)
+                    {
+                        var group = _groups[i];
+                        group.WideIndex += newHeader.CountElements;
+                    }
+
+                    ItemsAdded?.Invoke(wideIndex, newHeader.Items);
+                }
+                else
+                {
+                    ItemsAdded?.Invoke(e.NewStartingIndex, [newGroupItem]);
+                }
                 break;
             case NotifyCollectionChangedAction.Remove:
+                if (IsGroups)
                 {
-                    int rmIndex = e.OldStartingIndex;
-                    var rmItem = (IList)e.OldItems![0]!;
-                    if (rmItem is INotifyCollectionChanged rmItemNC)
-                        rmItemNC.CollectionChanged -= InnerGroup_CollectionChanged;
+                    var deletedGroup = _groups[e.OldStartingIndex];
+                    deletedGroup.Dispose();
+                    _groups.Remove(deletedGroup);
+                    _allItems.RemoveRange(deletedGroup.WideIndex, deletedGroup.CountElements);
 
-                    int wideIndex = GetWideIndexOfHead(rmIndex);
-                    int rmCount = rmItem.Count;
-                    if (UsedHeaders)
-                        rmCount++;
-                    if (UsedFooters)
-                        rmCount++;
+                    // shift under groups
+                    for (int i = e.OldStartingIndex; i < _groups.Count; i++)
+                    {
+                        var group = _groups[i];
+                        group.WideIndex -= deletedGroup.CountElements;
+                    }
 
-                    _allItems.RemoveRange(wideIndex, rmCount);
-                    _headers.Shift(rmIndex, -rmCount);
-                    _headers.RemoveAt(rmIndex);
-
-                    _footers?.Shift(rmIndex, -rmCount);
-                    _footers?.RemoveAt(rmIndex);
+                    ItemsRemoved?.Invoke(e.OldStartingIndex, deletedGroup.CountElements);
                 }
-                break;
-            case NotifyCollectionChangedAction.Reset:
-                foreach (var item in _headers)
+                else
                 {
-                    if (item.Context is INotifyCollectionChanged resetItemNC)
-                        resetItemNC.CollectionChanged -= InnerGroup_CollectionChanged;
+                    ItemsRemoved?.Invoke(e.OldStartingIndex, 1);
                 }
-
-                _allItems.Clear();
-                _headers.Clear();
-                _footers?.Clear();
                 break;
             case NotifyCollectionChangedAction.Replace:
-            case NotifyCollectionChangedAction.Move:
-            default:
                 throw new NotImplementedException();
+            case NotifyCollectionChangedAction.Move:
+                throw new NotImplementedException();
+            case NotifyCollectionChangedAction.Reset:
+                _groups.Clear();
+                _allItems.Clear();
+                ItemsCleared?.Invoke();
+                break;
+            default:
+                break;
         }
-    }
-
-    private void InnerGroup_CollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
-    {
-        // TODO доделать для групп
     }
 
     public void Dispose()
     {
         if (_isGroups)
         {
-            foreach (var group in _source)
+            foreach (var group in _groups)
             {
-                if (group is INotifyCollectionChanged nc)
-                    nc.CollectionChanged -= InnerGroup_CollectionChanged;
+                group.Dispose();
+            }
+        }
+
+        if (_source is INotifyCollectionChanged collection)
+            collection.CollectionChanged -= MainCollection_CollectionChanged;
+    }
+
+    internal class Group : IDisposable
+    {
+        private readonly int _headOrFooterCount;
+        private readonly bool _usedFooter;
+        private readonly WeakReference<SourceProvider> _sourceProvider;
+        private readonly bool _usedHeader;
+        private readonly INotifyCollectionChanged? _notifyCollectionChanged;
+
+        public Group(SourceProvider sourceProvider, object context, int wideIndex, bool useHeader, bool useFooter)
+        {
+            _usedHeader = useHeader;
+            _usedFooter = useFooter;
+            _sourceProvider = new(sourceProvider);
+            Context = context;
+            WideIndex = wideIndex;
+
+            if (context is INotifyCollectionChanged collection)
+            {
+                _notifyCollectionChanged = collection;
+                _notifyCollectionChanged.CollectionChanged += Collection_CollectionChanged;
+            }
+
+            if (useHeader)
+            {
+                _headOrFooterCount++;
+                CountElements++;
+            }
+
+            if (context is IList list)
+            {
+                CountElements += list.Count;
+            }
+
+            if (useFooter)
+            {
+                _headOrFooterCount++;
+                CountElements++;
+            }
+        }
+
+        public int WideIndex { get; set; }
+        public object Context { get; private set; }
+
+        public int CountElements { get; private set; }
+        public object[] Items
+        {
+            get
+            {
+                var list = new List<object>();
+
+                if (_usedHeader)
+                    list.Add(Context);
+
+                if (Context is IEnumerable enumerable)
+                {
+                    foreach (var item in enumerable)
+                        list.Add(item);
+                    return list.ToArray();
+                }
+                else
+                {
+                    list.Add(Context);
+                }
+
+                if (_usedFooter)
+                    list.Add(Context);
+
+                return list.ToArray();
+            }
+        }
+
+        public void Dispose()
+        {
+            if (_notifyCollectionChanged != null)
+                _notifyCollectionChanged.CollectionChanged -= Collection_CollectionChanged;
+        }
+
+        private void Collection_CollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
+        {
+            switch (e.Action)
+            {
+                case NotifyCollectionChangedAction.Add:
+                    CountElements++;
+                    break;
+                case NotifyCollectionChangedAction.Remove:
+                    CountElements--;
+                    break;
+                case NotifyCollectionChangedAction.Reset:
+                    CountElements = 0 + _headOrFooterCount;
+                    break;
+                default:
+                    break;
+            }
+
+            if (_sourceProvider.TryGetTarget(out var source))
+            {
+                source.InnerGroup_CollectionChanged(sender, e);
             }
         }
     }
 
-    internal class HeaderFooter
-    {
-        public required int WideIndex { get; set; }
-        public required object Context { get; set; }
-    }
-
     [DebuggerDisplay("{Index} | {Context}")]
-    private class DoubleItem
+    private class SourceItem
     {
-        public DoubleItem(DoubleTypes type, object context, int indexItem)
+        public SourceItem(DoubleTypes type, object context)
         {
             Type = type;
-            Index = indexItem;
             Context = context;
         }
 
         public DoubleTypes Type { get; }
-        public int Index { get; set; } = -1;
         public object Context { get; }
     }
 }

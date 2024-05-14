@@ -9,7 +9,7 @@ public partial class PageGroupList
     public PageGroupList(int count)
     {
         InitializeComponent();
-        var groups = new ObservableCollection<ItemGroup>
+        var array = new List<ItemGroup>()
         {
             new("A", 1)
             {
@@ -79,8 +79,12 @@ public partial class PageGroupList
                 ItemTest.Gen(3, 'J'),
                 ItemTest.Gen(4, 'J'),
                 ItemTest.Gen(5, 'J'),
-            }
+            },
         };
+
+        var groups = new ObservableCollection<ItemGroup>();
+        foreach (var group in array.Take(count))
+            groups.Add(group);
 
         list.ItemsSource = groups;
         Groups = groups;
@@ -110,39 +114,35 @@ public partial class PageGroupList
 
     private async void ToolbarItem_NewItem(object sender, EventArgs e)
     {
-        //var res = await this.DisplayPromptAsync("new item", "Typing index of insert", 
-        //    keyboard: Keyboard.Numeric,
-        //    placeholder: "-1 (as Add)");
-        //if (res == null)
-        //    return;
+        int? insertCount = await this.DisplayNumberPrompt("new group", "Typing count of items in new group", initialValue:1);
+        if (insertCount == null)
+            return;
 
-        //int parse = -1;
+        if (insertCount.Value < 0)
+            insertCount = 0;
 
-        //if (!string.IsNullOrEmpty(res))
-        //{
-        //    if (!int.TryParse(res, out parse))
-        //    {
-        //        await this.DisplayAlert("Error", "Bad input data", "OK");
-        //        return;
-        //    }
-        //}
+        int? insertGroup = await this.DisplayNumberPrompt("new group", "Typing index of insert", "-1 (as Add)");
+        if (insertGroup == null) 
+            return;
 
-        //int insert = parse;
-        //if (parse == -1 || parse > Items.Count)
-        //    insert = Items.Count;
+        if (insertGroup == -1 || insertGroup > Groups.Count)
+            insertGroup = Groups.Count;
 
-        //Items.Insert(insert, new ItemTest
-        //{
-        //    Text = "NEW ITEM",
-        //    Number = insert + 1,
-        //});
+        var group = new ItemGroup("NEW ITEM", insertGroup.Value + 1);
 
-        //for (int i = insert; i < Items.Count; i++)
-        //{
-        //    Items[i].Number = i + 1;
-        //}
+        for (int i = 0; i < insertCount.Value; i++)
+        {
+            group.Add(new ItemTest(i + 1, $"item sub item [index_{i}]"));
+        }
 
-        //await list.ScrollToAsync(insert, animate: true);
+        Groups.Insert(insertGroup.Value, group);
+
+        for (int i = insertGroup.Value; i < Groups.Count; i++)
+        {
+            Groups[i].Number = i + 1;
+        }
+
+        await list.ScrollToAsync(insertGroup, animate: true);
     }
 
     private async void ToolbarItem_RemoveGroup(object sender, EventArgs e)

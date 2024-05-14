@@ -243,72 +243,160 @@ internal class CacheController
         CacheCountBottom = bottomCount;
     }
 
-    internal double InsertCell(int logicIndex, SourceProvider itemssource, BodyGroup body)
+    //internal double InsertCell(int logicIndex, SourceProvider itemssource, BodyGroup body)
+    //{
+    //    bool isVisible = false;
+    //    int insertPoolIndex = 0;
+    //    var exists = _cachePool.FirstOrDefault(x => x.LogicIndex == logicIndex);
+    //    if (exists == null)
+    //    {
+    //        if (logicIndex == (itemssource.Count - 1) && body.IsScrolledToEnd)
+    //        {
+    //            var pre = _cachePool.Last();
+    //            var insertCell = body.BuildCell(logicIndex, -1);
+    //            insertCell.Measure(ViewPortWidth, double.PositiveInfinity);
+    //            insertCell.OffsetY = pre.BottomLim;
+    //        }
+    //    }
+    //    else
+    //    {
+    //        isVisible = exists.CachedPercentVis > 0;
+    //        if (isVisible)
+    //        {
+    //            var insertCell = FetchCacheItem();
+    //            if (insertCell == null)
+    //                insertCell = body.BuildCell(logicIndex, null);
+    //            else
+    //                insertCell.Shift(logicIndex, itemssource);
+
+    //            insertPoolIndex = _cachePool.IndexOf(exists);
+    //            insertCell.HardMeasure(ViewPortWidth, double.PositiveInfinity);
+    //            _cachePool.Insert(insertPoolIndex, insertCell);
+
+    //            var direction = GetDirection(body.EstimatedHeight);
+    //            if (direction == DirectionType.Down)
+    //            {
+    //                int i_start = insertPoolIndex + 1;
+    //                double offsetPlus = insertCell.DrawedSize.Height;
+    //                for (int i = i_start; i < _cachePool.Count; i++)
+    //                {
+    //                    var cell = _cachePool[i];
+    //                    double savedHeight = cell.DrawedSize.Height;
+    //                    cell.Shift(cell.LogicIndex + 1, itemssource);
+    //                    cell.OffsetY += offsetPlus;
+    //                    offsetPlus = savedHeight;
+    //                }
+    //            }
+    //            else
+    //            {
+    //                int i_start = insertPoolIndex - 1;
+    //                double offsetPlus = insertCell.DrawedSize.Height;
+    //                for (int i = i_start; i >= 0; i--)
+    //                {
+    //                    var cell = _cachePool[i];
+    //                    double savedHeight = cell.DrawedSize.Height;
+    //                    cell.Shift(cell.LogicIndex + 1, itemssource);
+    //                    cell.OffsetY += offsetPlus;
+    //                    offsetPlus = savedHeight;
+    //                }
+    //            }
+
+    //            return insertCell.DrawedSize.Height;
+    //        }
+    //    }
+
+    //    return AvgCellHeight;
+    //}
+
+    internal void InsertCells(int startWideIndex, object[] items, SourceProvider source, Func<int, VirtualItem> funcBuildItem,
+        out double rmHeight, 
+        out double changedScrollY)
     {
-        bool isVisible = false;
-        int insertPoolIndex = 0;
-        var exists = _cachePool.FirstOrDefault(x => x.LogicIndex == logicIndex);
-        if (exists == null)
+        int endWideIndex = startWideIndex + items.Length - 1;
+        int cachePoolStartIndex = _cachePool.FirstOrDefault()?.LogicIndex ?? 0;
+        int cachePoolEndIndex = _cachePool.LastOrDefault()?.LogicIndex ?? 0;
+
+        // Выше viewport
+        if (endWideIndex < cachePoolStartIndex)
         {
-            if (logicIndex == (itemssource.Count - 1) && body.IsScrolledToEnd)
-            {
-                var pre = _cachePool.Last();
-                var insertCell = body.BuildCell(logicIndex, -1);
-                insertCell.Measure(ViewPortWidth, double.PositiveInfinity);
-                insertCell.OffsetY = pre.BottomLim;
-            }
+            double add = AvgCellHeight * items.Length;
+            rmHeight = add;
+            changedScrollY = add;
         }
+        // Ниже viewport
+        else if (startWideIndex > cachePoolEndIndex)
+        {
+            double add = AvgCellHeight * items.Length;
+            rmHeight = add;
+            changedScrollY = 0;
+        }
+        // Остальное, что касается viewport
         else
         {
-            isVisible = exists.CachedPercentVis > 0;
-            if (isVisible)
+            int startIndexPool = -1;
+            int startIndexLogic = -1;
+            double offsetY = 0;
+            int shiftCount = 0;
+
+            for (int i = 0; i < _cachePool.Count; i++)
             {
-                var insertCell = FetchCacheItem();
-                if (insertCell == null)
-                    insertCell = body.BuildCell(logicIndex, null);
-                else
-                    insertCell.Shift(logicIndex, itemssource);
-
-                insertPoolIndex = _cachePool.IndexOf(exists);
-                insertCell.HardMeasure(ViewPortWidth, double.PositiveInfinity);
-                _cachePool.Insert(insertPoolIndex, insertCell);
-
-                var direction = GetDirection(body.EstimatedHeight);
-                if (direction == DirectionType.Down)
+                var cell = _cachePool[i];
+                if (startWideIndex <= cell.LogicIndex && cell.LogicIndex <= endWideIndex)
                 {
-                    int i_start = insertPoolIndex + 1;
-                    double offsetPlus = insertCell.DrawedSize.Height;
-                    for (int i = i_start; i < _cachePool.Count; i++)
+                    if (startIndexPool == -1)
                     {
-                        var cell = _cachePool[i];
-                        double savedHeight = cell.DrawedSize.Height;
-                        cell.Shift(cell.LogicIndex + 1, itemssource);
-                        cell.OffsetY += offsetPlus;
-                        offsetPlus = savedHeight;
+                        offsetY = cell.OffsetY;
+                        startIndexPool = i;
+                        startIndexLogic = cell.LogicIndex;
                     }
-                }
-                else
-                {
-                    int i_start = insertPoolIndex - 1;
-                    double offsetPlus = insertCell.DrawedSize.Height;
-                    for (int i = i_start; i >= 0; i--)
-                    {
-                        var cell = _cachePool[i];
-                        double savedHeight = cell.DrawedSize.Height;
-                        cell.Shift(cell.LogicIndex + 1, itemssource);
-                        cell.OffsetY += offsetPlus;
-                        offsetPlus = savedHeight;
-                    }
-                }
 
-                return insertCell.DrawedSize.Height;
+                    shiftCount++;
+                }
             }
-        }
 
-        return AvgCellHeight;
+            if (startIndexPool < 0)
+                throw new InvalidOperationException();
+
+            var addPool = new List<VirtualItem>();
+
+            // Снимаем низ
+            for (int i = 0; i < shiftCount; i++)
+            {
+                var cell = _cachePool[_cachePool.Count - 1];
+                addPool.Add(cell);
+                _cachePool.Remove(cell);
+            }
+
+            // вставляем элементы
+            int nextI = 0;
+            double addOffset = 0;
+            for (int i = 0; i < addPool.Count; i++)
+            {
+                var insert = addPool[i];
+                insert.Shift(startIndexLogic + i, source);
+                insert.Measure(ViewPortWidth, double.PositiveInfinity);
+                insert.OffsetY = offsetY;
+                _cachePool.Insert(startIndexPool + i, insert);
+
+                offsetY += insert.DrawedSize.Height;
+                addOffset += insert.DrawedSize.Height;
+                nextI = startIndexPool + i + 1;
+            }
+
+            // выравниваем offset и index нижних следующих элементов
+            for (int i = nextI; i < _cachePool.Count; i++)
+            {
+                var cell = _cachePool[i];
+                cell.OffsetY += addOffset;
+                cell.LogicIndex += shiftCount;
+            }
+
+            rmHeight = 0;
+            changedScrollY = 0;
+        }
     }
 
-    private VirtualItem[] RemoveCell_internal(int wideIndex, SourceProvider source, out double rmHeight, out double changedScrollY)
+    private VirtualItem[] RemoveCell(int wideIndex, SourceProvider source, out double rmHeight, out double changedScrollY)
     {
         var exists = _cachePool.FirstOrDefault(x => x.LogicIndex == wideIndex);
         if (exists != null)
@@ -337,7 +425,7 @@ internal class CacheController
         }
     }
 
-    private VirtualItem[] RemoveCells_internal(int startWideIndex, int count, SourceProvider source, out double rmHeight, out double changedScrollY)
+    internal VirtualItem[] RemoveCells(int startWideIndex, int count, SourceProvider source, out double rmHeight, out double changedScrollY)
     {
         rmHeight = 0;
         changedScrollY = 0;
@@ -446,7 +534,7 @@ internal class CacheController
 
                 _cachePool.Add(rmcell);
                 rmcell.OffsetY = startOffsetY + offHeight;
-                rmcell.ShiftDirect(setDirectIndex, newLogicalIndex, source);
+                rmcell.Shift(setDirectIndex, source);
                 rmcell.HardMeasure(ViewPortWidth, double.PositiveInfinity);
 
                 offHeight += rmcell.DrawedSize.Height;
@@ -517,33 +605,6 @@ internal class CacheController
         }
 
         return [];
-    }
-
-    internal VirtualItem[] RemoveCellAuto(int logicIndex, SourceProvider source, out double rmHeight, out double changedScrollY)
-    {
-        if (source.IsGroups)
-        {
-            var wideIndex = source.GetWideIndexOfHead(logicIndex);
-            var wideItem = (IList)source[wideIndex]!;
-
-            int countRemovedItems = wideItem.Count;
-            int startWideIndex = wideIndex;
-
-            if (source.UsedHeaders)
-                countRemovedItems++;
-
-            if (source.UsedFooters)
-                countRemovedItems++;
-
-            if (countRemovedItems == 1)
-                return RemoveCell_internal(logicIndex, source, out rmHeight, out changedScrollY);
-            else
-                return RemoveCells_internal(startWideIndex, countRemovedItems, source, out rmHeight, out changedScrollY);
-        }
-        else
-        {
-            return RemoveCell_internal(logicIndex, source, out rmHeight, out changedScrollY);
-        }
     }
 
     internal DirectionType GetDirection(double bodyFullHeight)

@@ -49,6 +49,16 @@ public partial class MainPage : ContentPage
         Navigation.PushAsync(new PageGroupList(10));
     }
 
+    private void Button_Groups1(object sender, EventArgs e)
+    {
+        Navigation.PushAsync(new PageGroupList(1));
+    }
+
+    private void Button_Groups0(object sender, EventArgs e)
+    {
+        Navigation.PushAsync(new PageGroupList(0));
+    }
+
     private void Button_ClickedAdvanceGroupList(object sender, EventArgs e)
     {
         Navigation.PushAsync(new AdvanceGroupListPage());
