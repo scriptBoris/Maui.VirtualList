@@ -148,7 +148,11 @@ public class VirtualList :
 
     protected override Size MeasureOverride(double widthConstraint, double heightConstraint)
     {
-        if (widthConstraint == _cachedMeasureWidth && heightConstraint == _cachedMeasureHeight)
+        bool noMeasure = widthConstraint == _cachedMeasureWidth && heightConstraint == _cachedMeasureHeight;
+        if (_body.RequestRecalcEstimatedHeight)
+            noMeasure = false;
+        
+        if (noMeasure)
             return new Size(ViewPortWidth, ViewPortHeight);
 
         var res = base.MeasureOverride(widthConstraint, heightConstraint);

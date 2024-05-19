@@ -84,6 +84,7 @@
                 </DataTemplate>
             </virtualList:VirtualList.ItemTemplate>
 
+            <!--empty view-->
             <virtualList:VirtualList.EmptyViewTemplate>
                 <DataTemplate>
                     <Label HorizontalTextAlignment="Center"

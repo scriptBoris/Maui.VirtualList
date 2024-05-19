@@ -17,7 +17,6 @@ public class BodyGroup : Layout, ILayoutManager
     private Size _redrawCache;
     private View? _emptyView;
     private SourceProvider? ItemsSource;
-    private bool isAfterDelete;
 
     internal BodyGroup(IScroller scroller)
     {
@@ -92,6 +91,7 @@ public class BodyGroup : Layout, ILayoutManager
     public double ViewPortBottomLim => ScrollY + ViewPortHeight;
 
     public bool RequestRecalcEstimatedHeight { get; private set; } = true;
+    public bool RequestRedraw { get; private set; } = true;
     public double AvgCellHeight { get; private set; } = -1;
     public double EstimatedHeight { get; private set; } = -1;// Cunt * AvgCellHeight;
 
@@ -153,7 +153,7 @@ public class BodyGroup : Layout, ILayoutManager
             ItemsSource?.Recalc(GroupHeaderTemplate != null, GroupFooterTemplate != null);
             ResolveEmptyView();
 
-            _redrawCache = Size.Zero;
+            RequestRedraw = true;
             RequestRecalcEstimatedHeight = true;
             this.HardInvalidateMeasure();
         }
@@ -208,32 +208,34 @@ public class BodyGroup : Layout, ILayoutManager
         double cacheH = _redrawCache.Height;
         double reqW = bounds.Size.Width;
         double reqH = bounds.Size.Height;
+        bool useCache = cacheW.IsEquals(reqW) && cacheH.IsEquals(reqH);
 
-        if (cacheW.IsEquals(reqW) && cacheH.IsEquals(reqH))
+        if (RequestRedraw)
+            useCache = false;
+
+        if (useCache)
             return _redrawCache;
 
         var drawSize = Redraw();
+        RequestRedraw = false;
         return drawSize;
     }
 
     public Size Measure(double widthConstraint, double heightConstraint)
     {
-        // Для удобной отладки
-        //if (isAfterDelete)
-        //    Debugger.Break();
-
         double height = EstimatedHeight;
         if (RequestRecalcEstimatedHeight)
         {
-            _emptyView?.HardMeasure(ViewPortWidth, ViewPortHeight);
-            
-            foreach (var item in Children)
-                item.Measure(widthConstraint, heightConstraint);
+            _emptyView?.HardMeasure(widthConstraint, heightConstraint);
+
+            var items = _cacheController.ExclusiveCachePool;
+            foreach (var item in items)
+                item.HardMeasure(widthConstraint, heightConstraint);
 
             if (AvgCellHeight < 0 && Cunt > 0)
-                InitStartedCells();
+                InitStartedCells(widthConstraint, heightConstraint);
 
-            height = RecalcEstimateHeight();
+            height = RecalcEstimateHeight(widthConstraint, heightConstraint);
             RequestRecalcEstimatedHeight = false;
         }
 
@@ -248,11 +250,11 @@ public class BodyGroup : Layout, ILayoutManager
     private Size Redraw()
     {
         if (ItemsSource == null || ViewPortWidth <= 0 || ViewPortHeight <= 0 || EstimatedHeight <= 0)
-            return new Size(ViewPortWidth, ViewPortHeight);
-
-        // Для удобной отладки
-        //if (isAfterDelete)
-        //    Debugger.Break();
+        {
+            var rect = new Rect(0, 0, ViewPortWidth, ViewPortHeight);
+            Draw(rect);
+            return rect.Size;
+        }
 
         // 0: init view port
         _cacheController.UseViewFrame(ViewPortWidth, ViewPortHeight, ScrollY, ViewPortBottomLim);
@@ -268,10 +270,6 @@ public class BodyGroup : Layout, ILayoutManager
         double newOffsetY = anchor?.OffsetY ?? ScrollY;
         int indexPool = _cacheController.IndexOf(middleStart, 0);
         int indexSource = anchor?.LogicIndex ?? CalcMethods.CalcIndexByY(ScrollY, EstimatedHeight, ItemsSource.Count);
-
-        // Для удобной отладки
-        //if (isAfterDelete)
-        //    Debugger.Break();
 
         while (true)
         {
@@ -486,13 +484,13 @@ public class BodyGroup : Layout, ILayoutManager
 
     private void Draw(Rect bounds)
     {
-        var drawItems = _cacheController.ExclusiveCachePool;
-
         if (_emptyView != null)
         {
             var r = new Rect(0, 0, bounds.Width, bounds.Height);
             _emptyView.HardArrange(r);
         }
+
+        var drawItems = _cacheController.ExclusiveCachePool;
 
         // DRAW FOR FIRST
         var firstDraw = drawItems.FirstOrDefault();
@@ -652,54 +650,69 @@ public class BodyGroup : Layout, ILayoutManager
         AvgCellHeight = CalcAverageCellHeight();
         EstimatedHeight += rmHeight;
 
+        // todo сделать отрисовку правильной
         RequestRecalcEstimatedHeight = true;
         this.HardInvalidateMeasure();
 
-        _redrawCache = Size.Zero;
         Redraw();
     }
 
-    private void ItemsSource_ItemsRemoved(int wideindexStart, int countDeletedItems)
+    private void ItemsSource_ItemsRemoved(int wideindexStart, int[] deletedIndexes)
     {
         var collection = ItemsSource!;
-        bool changedCounts = true;
-        bool requestRedraw = false;
-
-        var dels = _cacheController.RemoveCells(wideindexStart, countDeletedItems, 
+        var dels = _cacheController.RemoveCells(
+            wideindexStart, 
+            deletedIndexes, 
             collection,
-            out double changedEstimatedHeight,
-            out double changedScrollY);
+            EstimatedHeight,
+            ScrollY
+        );
 
-        foreach (var item in dels)
+        foreach (var item in dels.DeleteItems)
             Children.Remove(item);
 
+        bool nowRedraw = dels.DeleteItems.Length > 0;
+        bool changedCounts = dels.DeleteItems.Length > 0;
+
         // redraw actions
-        if (changedEstimatedHeight != 0)
+        if (dels.NewBodyHeight != null)
         {
             AvgCellHeight = CalcAverageCellHeight();
-            EstimatedHeight += changedEstimatedHeight;
+            EstimatedHeight = dels.NewBodyHeight.Value;
         }
 
         if (changedCounts)
-            this.ResolveEmptyView();
-
-        if (changedEstimatedHeight != 0)
         {
-            RequestRecalcEstimatedHeight = true;
-            this.HardInvalidateMeasure();
-            requestRedraw = true;
+            ResolveEmptyView();
         }
 
-        if (changedScrollY != 0)
+        if (dels.NewBodyHeight != null)
         {
-            double scroll = _scroller.ScrollY + changedScrollY;
-            _redrawCache = Size.Zero;
-            RequestRecalcEstimatedHeight = true;
-            _scroller.SetScrollY(scroll);
-            requestRedraw = true;
+            if (changedCounts)
+            {
+                RequestRedraw = true;
+                RequestRecalcEstimatedHeight = true;
+                this.HardInvalidateMeasure();
+                nowRedraw = false;
+            }
+            else
+            {
+                RequestRecalcEstimatedHeight = true;
+                this.HardInvalidateMeasure();
+                nowRedraw = true;
+            }
         }
 
-        if (requestRedraw)
+        if (dels.NewScrollY != null)
+        {
+            double newScrollY = dels.NewScrollY.Value;
+            RequestRedraw = true;
+            RequestRecalcEstimatedHeight = true;
+            _scroller.SetScrollY(newScrollY);
+            nowRedraw = true;
+        }
+
+        if (nowRedraw)
             Redraw();
     }
 
@@ -712,7 +725,7 @@ public class BodyGroup : Layout, ILayoutManager
 
         this.ResolveEmptyView();
 
-        _redrawCache = Size.Zero;
+        RequestRedraw = true;
         RequestRecalcEstimatedHeight = true;
 
         _scroller.SetScrollY(0);
@@ -720,11 +733,10 @@ public class BodyGroup : Layout, ILayoutManager
         Redraw();
     }
 
-    public double RecalcEstimateHeight()
+    public double RecalcEstimateHeight(double vpWidth, double vpHeight)
     {
         AvgCellHeight = CalcAverageCellHeight();
         double result = Cunt * AvgCellHeight;
-        double vpHeight = ViewPortHeight;
         if (result <= 0)
             result = vpHeight;
 
@@ -742,11 +754,12 @@ public class BodyGroup : Layout, ILayoutManager
         return res;
     }
 
-    private void InitStartedCells()
+    private void InitStartedCells(double vpwidth, double vpheight)
     {
         int index = 0;
         double newOffsetY = 0;
-        double freeViewPort = ViewPortHeight;
+        double freeViewPort = vpheight;
+        double viewPortBottomLim = ScrollY + vpheight;
         int maxIndex = ItemsSource!.Count - 1;
 
         while (true)
@@ -758,9 +771,9 @@ public class BodyGroup : Layout, ILayoutManager
                 break;
 
             var cell = BuildCell(index, -1);
-            cell.HardMeasure(ViewPortWidth, double.PositiveInfinity);
+            cell.HardMeasure(vpwidth, double.PositiveInfinity);
             cell.OffsetY = newOffsetY;
-            cell.CachedPercentVis = CalcMethods.CalcVisiblePercent(cell.OffsetY, cell.BottomLim, ScrollY, ViewPortBottomLim).Percent;
+            cell.CachedPercentVis = CalcMethods.CalcVisiblePercent(cell.OffsetY, cell.BottomLim, ScrollY, viewPortBottomLim).Percent;
             
             newOffsetY += cell.DrawedSize.Height;
             freeViewPort -= cell.DrawedSize.Height;

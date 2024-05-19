@@ -6,7 +6,7 @@ using System.Diagnostics;
 namespace MauiVirtualList.Utils;
 
 internal delegate void SourceHandler_Insert(int wideindexStart, object[] items);
-internal delegate void SourceHandler_Removed(int wideindexStart, int countDeletedItems);
+internal delegate void SourceHandler_Removed(int wideindexStart, int[] deletedIndexes);
 internal delegate void SourceHandler_Cleared();
 
 internal class SourceProvider : IDisposable
@@ -277,11 +277,15 @@ internal class SourceProvider : IDisposable
                         group.WideIndex -= deletedGroup.CountElements;
                     }
 
-                    ItemsRemoved?.Invoke(e.OldStartingIndex, deletedGroup.CountElements);
+                    int[] dels = new int[deletedGroup.CountElements];
+                    for (int i = 0; i < deletedGroup.CountElements; i++)
+                        dels[i] = deletedGroup.WideIndex + i;
+
+                    ItemsRemoved?.Invoke(deletedGroup.WideIndex, dels);
                 }
                 else
                 {
-                    ItemsRemoved?.Invoke(e.OldStartingIndex, 1);
+                    ItemsRemoved?.Invoke(e.OldStartingIndex, [e.OldStartingIndex]);
                 }
                 break;
             case NotifyCollectionChangedAction.Replace:
