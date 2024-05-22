@@ -100,7 +100,7 @@ public class VirtualItem : Layout, ILayoutManager
         }
         else
         {
-            var parent = (BodyGroup)Parent;
+            var parent = (Body)Parent;
             var old = _content;
             old.BindingContext = null;
             Children.Remove(old);

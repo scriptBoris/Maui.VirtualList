@@ -12,11 +12,11 @@ public class VirtualList :
     ScrollViewOut
     //ScrollViewProd
 {
-    private readonly BodyGroup _body;
+    private readonly Body _body;
 
     public VirtualList()
     {
-        _body = new BodyGroup(this);
+        _body = new Body(this);
         Content = _body;
         Scrolled += VirtualList_Scrolled;
     }
