@@ -1,4 +1,5 @@
-﻿using Sample.Models;
+﻿using MauiVirtualList.Args;
+using Sample.Models;
 using Sample.Utils;
 using System.Collections.ObjectModel;
 
@@ -97,22 +98,42 @@ public partial class PageGroupList
 
     private void ToolbarItem_Scroll200(object sender, EventArgs e)
     {
-        list.ScrollToAsync(0, list.ScrollY + 200, false);
+        list.ScrollToAsync(new ScrollCoordinateRequest
+        {
+            Y = list.ScrollY + 200,
+        });
     }
 
     private void ToolbarItem_Scroll10(object sender, EventArgs e)
     {
-        list.ScrollToAsync(0, list.ScrollY + 10, false);
+        list.ScrollToAsync(new ScrollCoordinateRequest
+        {
+            Y = list.ScrollY + 10,
+        });
+    }
+
+    private void ToolbarItem_minus10(object sender, EventArgs e)
+    {
+        list.ScrollToAsync(new ScrollCoordinateRequest
+        {
+            Y = list.ScrollY - 10,
+        });
     }
 
     private void ToolbarItem_ScrollToEnd(object sender, EventArgs e)
     {
-        list.ScrollToAsync(0, list.ContentSize.Height, false);
+        list.ScrollToAsync(new ScrollCoordinateRequest
+        {
+            Y = list.ContentSize.Height,
+        });
     }
 
     private void ToolbarItem_ScrollToStart(object sender, EventArgs e)
     {
-        list.ScrollToAsync(0, 0, false);
+        list.ScrollToAsync(new ScrollCoordinateRequest
+        {
+            Y = 0,
+        });
     }
 
     private async void ToolbarItem_NewItem(object sender, EventArgs e)
@@ -145,7 +166,10 @@ public partial class PageGroupList
             Groups[i].Number = i + 1;
         }
 
-        await list.ScrollToAsync(insertGroup, animate: true);
+        await list.ScrollToAsync(new ScrollItemRequest
+        {
+            Item = group,
+        });
     }
 
     private async void ToolbarItem_RemoveGroup(object sender, EventArgs e)

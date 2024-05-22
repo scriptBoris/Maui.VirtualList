@@ -8,10 +8,13 @@
 
     <ContentPage.ToolbarItems>
         <ToolbarItem Clicked="ToolbarItem_Scroll200"
-                     Text="Scroll +200"/>
+                     Text="Y+200"/>
 
         <ToolbarItem Clicked="ToolbarItem_Scroll10"
-                     Text="Scroll +10"/>
+                     Text="Y+10"/>
+
+        <ToolbarItem Clicked="ToolbarItem_minus10"
+                     Text="Y-10"/>
 
         <ToolbarItem Clicked="ToolbarItem_ScrollToStart"
                      Order="Secondary"

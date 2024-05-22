@@ -6,6 +6,7 @@ using Microsoft.Maui.Layouts;
 using MauiVirtualList.Enums;
 using MauiVirtualList.Utils;
 using MauiVirtualList.Structs;
+using Microsoft.Maui.Animations;
 namespace MauiVirtualList.Controls;
 
 public class BodyGroup : Layout, ILayoutManager
@@ -90,10 +91,10 @@ public class BodyGroup : Layout, ILayoutManager
     public double ViewPortHeight => _scroller.ViewPortHeight;
     public double ViewPortBottomLim => ScrollY + ViewPortHeight;
 
-    public bool RequestRecalcEstimatedHeight { get; private set; } = true;
+    public bool RequestResize { get; private set; } = true;
     public bool RequestRedraw { get; private set; } = true;
     public double AvgCellHeight { get; private set; } = -1;
-    public double EstimatedHeight { get; private set; } = -1;// Cunt * AvgCellHeight;
+    public double EstimatedHeight { get; private set; } = -1;
 
     // TODO Убрать, вставка идет норм без этого
     [Obsolete("Убрать")]
@@ -112,6 +113,28 @@ public class BodyGroup : Layout, ILayoutManager
                 return true;
 
             return ViewPortBottomLim.IsEquals(EstimatedHeight, 5);
+        }
+    }
+
+    /// <summary>
+    /// 0.0 - top<br/>
+    /// 1.0 - bottom
+    /// </summary>
+    public double PercentOfScrolled
+    {
+        get
+        {
+            if (ViewPortHeight >= EstimatedHeight)
+                return 0;
+
+            double perc = _scroller.ScrollY / EstimatedHeight - ViewPortHeight;
+            
+            if (perc < 0)
+                perc = 0;
+            else if (perc > 1)
+                perc = 1;
+
+            return perc;
         }
     }
     #endregion props
@@ -154,7 +177,7 @@ public class BodyGroup : Layout, ILayoutManager
             ResolveEmptyView();
 
             RequestRedraw = true;
-            RequestRecalcEstimatedHeight = true;
+            RequestResize = true;
             this.HardInvalidateMeasure();
         }
         else
@@ -176,13 +199,35 @@ public class BodyGroup : Layout, ILayoutManager
         if (ItemsSource == null)
             return;
 
+        // todo сделать для винды отрисовку напрямую, но перед этим измерять размеры
 #if WINDOWS
         // У винды особое представление о рисовании элементов
         this.HardInvalidateMeasure();
 #else
+        // если есть элементы за offsetY < 0
+        double outTopOffsetY = _cacheController.OutTopOffsetY();
+        if (outTopOffsetY > 0)
+        {
+            _cacheController.FixOffsetY(outTopOffsetY);
+            
+            EstimatedHeight += outTopOffsetY;
+            this.HardInvalidateMeasure();
+
+            _scroller.SetScrollY(scrolledY + outTopOffsetY);
+            return;
+        }
+
+        // если есть элементы которые вышли за пределы scrollView
+        double outbottomOffsetY = _cacheController.OutBottomOffsetY(EstimatedHeight);
+        if (outbottomOffsetY > 0)
+        {
+            EstimatedHeight += outbottomOffsetY;
+            this.HardInvalidateMeasure();
+            return;
+        }
+
         // Вызываем прямую перерисовку элементов (для повышения производительности)
         Redraw();
-        //ArrangeChildren(new Rect(0, 0, vp_width, vp_height));
 #endif
     }
 
@@ -224,7 +269,10 @@ public class BodyGroup : Layout, ILayoutManager
     public Size Measure(double widthConstraint, double heightConstraint)
     {
         double height = EstimatedHeight;
-        if (RequestRecalcEstimatedHeight)
+        double measureViewPortWidth = _scroller.MeasureViewPortWidth;
+        double measureViewPortHeight = _scroller.MeasureViewPortHeight;
+
+        if (RequestResize)
         {
             _emptyView?.HardMeasure(widthConstraint, heightConstraint);
 
@@ -233,10 +281,12 @@ public class BodyGroup : Layout, ILayoutManager
                 item.HardMeasure(widthConstraint, heightConstraint);
 
             if (AvgCellHeight < 0 && Cunt > 0)
-                InitStartedCells(widthConstraint, heightConstraint);
+            {
+                InitStartedCells(measureViewPortWidth, measureViewPortHeight);
+                height = RecalcEstimateHeight(measureViewPortWidth, measureViewPortHeight);
+            }
 
-            height = RecalcEstimateHeight(widthConstraint, heightConstraint);
-            RequestRecalcEstimatedHeight = false;
+            RequestResize = false;
         }
 
         return new Size(widthConstraint, height);
@@ -462,21 +512,21 @@ public class BodyGroup : Layout, ILayoutManager
         // Собственно, рисуем наш cachepool
         Draw(new Rect(0,0, ViewPortWidth, ViewPortHeight));
 
-        // TODO приудмать с этим что-то
-        bool isNoEnd = false;
-        var lst = _cacheController.LastOrDefault();
-        if (lst != null)
-        {
-            double lstDelta = EstimatedHeight - lst.BottomLim;
-            isNoEnd = lstDelta < -50 && lst.LogicIndex != ItemsSource.Count - 1;
-        }
+        //// TODO приудмать с этим что-то
+        //bool isNoEnd = false;
+        //var lst = _cacheController.LastOrDefault();
+        //if (lst != null)
+        //{
+        //    double lstDelta = EstimatedHeight - lst.BottomLim;
+        //    isNoEnd = lstDelta < -50 && lst.LogicIndex != ItemsSource.Count - 1;
+        //}
 
-        if (isNoEnd)
-        {
-            //int dif = ItemsSource.Count - lst.LogicIndex;
-            EstimatedHeight = EstimatedHeight + 20;
-            Debug.WriteLine($"OVERRIDED EstimatedHeight + 20!");
-        }
+        //if (isNoEnd)
+        //{
+        //    //int dif = ItemsSource.Count - lst.LogicIndex;
+        //    EstimatedHeight = EstimatedHeight + 20;
+        //    Debug.WriteLine($"OVERRIDED EstimatedHeight + 20!");
+        //}
 
         _redrawCache = new Size(ViewPortWidth, ViewPortHeight);
         return _redrawCache;
@@ -651,7 +701,7 @@ public class BodyGroup : Layout, ILayoutManager
         EstimatedHeight += rmHeight;
 
         // todo сделать отрисовку правильной
-        RequestRecalcEstimatedHeight = true;
+        RequestResize = true;
         this.HardInvalidateMeasure();
 
         Redraw();
@@ -660,7 +710,7 @@ public class BodyGroup : Layout, ILayoutManager
     private void ItemsSource_ItemsRemoved(int wideindexStart, int[] deletedIndexes)
     {
         var collection = ItemsSource!;
-        var dels = _cacheController.RemoveCells(
+        var result = _cacheController.RemoveCells(
             wideindexStart, 
             deletedIndexes, 
             collection,
@@ -668,51 +718,32 @@ public class BodyGroup : Layout, ILayoutManager
             ScrollY
         );
 
-        foreach (var item in dels.DeleteItems)
+        foreach (var item in result.DeleteItems)
             Children.Remove(item);
 
-        bool nowRedraw = dels.DeleteItems.Length > 0;
-        bool changedCounts = dels.DeleteItems.Length > 0;
+        bool mustRedraw = result.MustBeRedraw;
+        bool wasRedraw = false;
 
-        // redraw actions
-        if (dels.NewBodyHeight != null)
+        if (result.DeleteItems.Length > 0)
+            ResolveEmptyView();
+
+        if (result.NewBodyHeight != null)
         {
             AvgCellHeight = CalcAverageCellHeight();
-            EstimatedHeight = dels.NewBodyHeight.Value;
+            EstimatedHeight = result.NewBodyHeight.Value;
+            RequestResize = true;
+            this.HardInvalidateMeasure();
         }
 
-        if (changedCounts)
+        if (result.NewScrollY != null)
         {
-            ResolveEmptyView();
-        }
-
-        if (dels.NewBodyHeight != null)
-        {
-            if (changedCounts)
-            {
-                RequestRedraw = true;
-                RequestRecalcEstimatedHeight = true;
-                this.HardInvalidateMeasure();
-                nowRedraw = false;
-            }
-            else
-            {
-                RequestRecalcEstimatedHeight = true;
-                this.HardInvalidateMeasure();
-                nowRedraw = true;
-            }
-        }
-
-        if (dels.NewScrollY != null)
-        {
-            double newScrollY = dels.NewScrollY.Value;
             RequestRedraw = true;
-            RequestRecalcEstimatedHeight = true;
-            _scroller.SetScrollY(newScrollY);
-            nowRedraw = true;
+            RequestResize = true;
+            _scroller.SetScrollY(result.NewScrollY.Value);
+            wasRedraw = true;
         }
 
-        if (nowRedraw)
+        if (mustRedraw && !wasRedraw)
             Redraw();
     }
 
@@ -726,7 +757,7 @@ public class BodyGroup : Layout, ILayoutManager
         this.ResolveEmptyView();
 
         RequestRedraw = true;
-        RequestRecalcEstimatedHeight = true;
+        RequestResize = true;
 
         _scroller.SetScrollY(0);
         this.HardInvalidateMeasure();

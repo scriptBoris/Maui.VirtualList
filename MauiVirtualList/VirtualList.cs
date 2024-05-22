@@ -2,18 +2,17 @@
 using System.Collections.Specialized;
 using System.ComponentModel;
 using System.Diagnostics;
+using MauiVirtualList.Args;
 using MauiVirtualList.Controls;
 using MauiVirtualList.Utils;
 
 namespace MauiVirtualList;
 
 public class VirtualList :
-    ScrollViewTest
+    ScrollViewOut
     //ScrollViewProd
 {
     private readonly BodyGroup _body;
-    private double _cachedMeasureWidth;
-    private double _cachedMeasureHeight;
 
     public VirtualList()
     {
@@ -103,10 +102,10 @@ public class VirtualList :
     /// </summary>
     /// <param name="percent">0.0 - 0 percent (top)<br/>1.0 - 100 percent (bottom)</param>
     /// <param name="animated"></param>
-    public Task ScrollToAsync(double percent, bool animated)
+    public Task ScrollToAsync(ScrollPercentRequest request)
     {
-        var h = _body.Height * percent;
-        return base.ScrollToAsync(0, h, animated);
+        var h = _body.Height * request.PercentY;
+        return base.ScrollToAsync(0, h, request.UseAnimation);
     }
 
     /// <summary>
@@ -115,17 +114,22 @@ public class VirtualList :
     /// <param name="item">item or group item</param>
     /// <param name="position"></param>
     /// <param name="animate"></param>
-    public Task ScrollToAsync(object item, ScrollToPosition position = ScrollToPosition.MakeVisible, bool animate = true)
+    public Task ScrollToAsync(ScrollItemRequest request)
     {
-        int index = ItemsSource?.IndexOf(item) ?? -1;
+        int index = ItemsSource?.IndexOf(request.Item) ?? -1;
         if (index == -1)
             return Task.CompletedTask;
 
         double y = _body.GetYItem(index);
-        return base.ScrollToAsync(0, y, animate);
+        return base.ScrollToAsync(0, y, request.UseAnimation);
     }
 
-    public async Task ScrollToAsync(int index, int groupIndex, ScrollToPosition position = ScrollToPosition.MakeVisible, bool animate = true)
+    public Task ScrollToAsync(ScrollCoordinateRequest request)
+    {
+        return base.ScrollToAsync(request.X, request.Y, request.UseAnimation);
+    }
+
+    public async Task ScrollToAsync(ScrollGroupRequest request)
     {
         //double y = _body.GetYItem(index);
         //await Task.Delay(5);
@@ -148,21 +152,11 @@ public class VirtualList :
 
     protected override Size MeasureOverride(double widthConstraint, double heightConstraint)
     {
-        bool noMeasure = widthConstraint == _cachedMeasureWidth && heightConstraint == _cachedMeasureHeight;
-        if (_body.RequestRecalcEstimatedHeight)
-            noMeasure = false;
-        
-        if (noMeasure)
-            return new Size(ViewPortWidth, ViewPortHeight);
-
+        MeasureViewPortWidth = widthConstraint;
+        MeasureViewPortHeight = heightConstraint;
         var res = base.MeasureOverride(widthConstraint, heightConstraint);
-        
-        ViewPortWidth = widthConstraint - ScrollerWidth;
+        ViewPortWidth = widthConstraint;
         ViewPortHeight = heightConstraint;
-
-        _cachedMeasureWidth = widthConstraint;
-        _cachedMeasureHeight = heightConstraint;
-
         return res;
     }
 }

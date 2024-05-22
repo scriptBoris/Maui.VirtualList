@@ -1,4 +1,5 @@
-﻿using Sample.Models;
+﻿using MauiVirtualList.Args;
+using Sample.Models;
 using Sample.Utils;
 using System.Collections.ObjectModel;
 
@@ -70,7 +71,10 @@ public partial class PageList
             Items[i].Number = i + 1;
         }
 
-        await list.ScrollToAsync(insert, animate: true);
+        await list.ScrollToAsync(new ScrollItemRequest
+        {
+            Item = insert
+        });
     }
 
     private async void ToolbarItem_RemoveItem(object sender, EventArgs e)

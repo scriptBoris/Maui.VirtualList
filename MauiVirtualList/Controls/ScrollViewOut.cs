@@ -2,7 +2,7 @@
 
 namespace MauiVirtualList.Controls;
 
-public class ScrollViewOut : ScrollView, IScroller
+public class ScrollViewProd : ScrollView, IScroller
 {
     public double MeasureViewPortWidth { get; internal set; }
     public double MeasureViewPortHeight { get; internal set; }

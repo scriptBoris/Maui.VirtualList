@@ -441,6 +441,7 @@ internal class CacheController
             return new RemoveCellsResult
             {
                 DeleteItems = [],
+                MustBeRedraw = false,
                 NewBodyHeight = bodyHeight - rm,
                 NewScrollY = currentScrollY - rm,
             };
@@ -452,6 +453,7 @@ internal class CacheController
             return new RemoveCellsResult
             {
                 DeleteItems = [],
+                MustBeRedraw = false,
                 NewBodyHeight = bodyHeight - rm,
                 NewScrollY = null,
             };
@@ -463,7 +465,6 @@ internal class CacheController
             int startIndexLogic = -1;
             double offsetY = 0;
             int shiftCount = 0;
-            bool isLastDelete = deletedIndexes.Last() == source.Count + count - 1;
             bool canShift = (startWideIndex + deletedIndexes.Length - 1) < source.Count - 1;
 
             for (int i = 0; i < _cachePool.Count; i++)
@@ -513,12 +514,13 @@ internal class CacheController
                 return new RemoveCellsResult
                 {
                     DeleteItems = [],
+                    MustBeRedraw = true,
                     NewBodyHeight = bodyHeight - rmHeight,
                     NewScrollY = currentScrollY - rmHeight,
                 };
             }
             // 3.2 шифт наверх
-            else if (!isLastDelete)
+            else
             {
                 double rmHeight = 0;
                 VirtualItem? lastItem = null;
@@ -528,10 +530,16 @@ internal class CacheController
                 {
                     var cell = _cachePool[i];
                     if (startWideIndex <= cell.LogicIndex && cell.LogicIndex <= endWideIndex)
+                    {
                         rmHeight += cell.DrawedSize.Height;
+                    }
+                    else
+                    {
+                        lastItem ??= cell;
+                    }
 
-                    if (cell.LogicIndex == source.Count + deletedIndexes.Length - 1)
-                        lastItem = cell;
+                    //if (cell.LogicIndex == source.Count + deletedIndexes.Length - 1)
+                    //    lastItem = cell;
 
                     _cachePool.Remove(cell);
                     removeItems.Add(cell);
@@ -593,39 +601,9 @@ internal class CacheController
                 return new RemoveCellsResult
                 {
                     DeleteItems = removeItems.ToArray(),
+                    MustBeRedraw = true,
                     NewBodyHeight = bodyHeight - rmHeight,
                     NewScrollY = newScrollY,
-                };
-            }
-            // 3.3 снизу вверх (удаление последних элементов)
-            else
-            {
-                offsetY = _cachePool[startIndexPool].OffsetY;
-                double rmHeight = 0;
-                int indexLogic = source.Count - 1;
-
-                for (int i = _cachePool.Count - 1; i >= 0; i--)
-                {
-                    var cell = _cachePool[i];
-
-                    if (startWideIndex <= cell.LogicIndex && cell.LogicIndex <= endWideIndex)
-                    {
-                        rmHeight += cell.DrawedSize.Height;
-                    }
-
-                    cell.Shift(indexLogic, source);
-                    cell.HardMeasure(ViewPortWidth, double.PositiveInfinity);
-                    cell.OffsetY = offsetY;
-
-                    offsetY -= cell.DrawedSize.Height;
-                    indexLogic--;
-                }
-                return new RemoveCellsResult
-                {
-                    // TODO сделать нормальное удаление
-                    DeleteItems = [],
-                    NewBodyHeight = bodyHeight - rmHeight,
-                    NewScrollY = currentScrollY - rmHeight,
                 };
             }
         }
@@ -806,6 +784,34 @@ internal class CacheController
         #endregion old
     }
 
+    internal double OutTopOffsetY()
+    {
+        if (_cachePool.Count == 0)
+            return 0;
+
+        double outOffsetY = 0;
+        foreach (var item in _cachePool)
+            if (item.OffsetY < 0)
+                outOffsetY += Math.Abs(item.OffsetY);
+            else
+                break;
+
+        return outOffsetY;
+    }
+
+    internal double OutBottomOffsetY(double estimateHeight)
+    {
+        if (_cachePool.Count == 0 || estimateHeight == 0)
+            return 0;
+
+        var item = _cachePool.Last();
+        double delta = item.BottomLim - estimateHeight;
+        if (delta > 0)
+            return delta;
+
+        return 0;
+    }
+
     internal DirectionType GetDirection(double bodyFullHeight)
     {
         if (ScrollBottom <= bodyFullHeight)
@@ -912,5 +918,13 @@ internal class CacheController
         //double abs = fullHeaders + fullItems + fullFooters;
         //double res = abs / source.Count;
         //return res;
+    }
+
+    internal void FixOffsetY(double addOffsetY)
+    {
+        foreach (var item in _cachePool)
+        {
+            item.OffsetY += addOffsetY;
+        }
     }
 }

@@ -1,5 +1,6 @@
 ﻿using FFImageLoading.Maui;
 using Microsoft.Extensions.Logging;
+using MauiVirtualList;
 
 namespace Sample
 {
@@ -11,6 +12,8 @@ namespace Sample
             builder
                 .UseMauiApp<App>()
                 .UseFFImageLoading()
+                .UseMauiVirtualList()
+
                 .ConfigureFonts(fonts =>
                 {
                     fonts.AddFont("OpenSans-Regular.ttf", "OpenSansRegular");
