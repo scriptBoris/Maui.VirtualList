@@ -219,16 +219,6 @@ internal class CacheController
                 default:
                     throw new NotImplementedException();
             }
-
-            if (vis.Percent == 0)
-            {
-                CacheCountTop++;
-            }
-            else
-            {
-                MiddleLogicIndexStart = cell.LogicIndex;
-                break;
-            }
         }
 
         if (visibleFillHeight > 0)
@@ -239,42 +229,6 @@ internal class CacheController
         {
             ViewPortFillPercent = 0;
         }
-
-        //// find top cache
-        //for (int i = 0; i < _cachePool.Count; i++)
-        //{
-        //    var cell = _cachePool[i];
-        //    var vis = CalcMethods
-        //        .CalcVisiblePercent(cell.OffsetY, cell.BottomLim, ScrollTop, ScrollBottom);
-        //    cell.CachedPercentVis = vis.Percent;
-        //    if (vis.Percent == 0)
-        //    {
-        //        CacheCountTop++;
-        //    }
-        //    else
-        //    {
-        //        MiddleLogicIndexStart = cell.LogicIndex;
-        //        break;
-        //    }
-        //}
-
-        //// find bottom cache
-        //for (int i = _cachePool.Count - 1; i >= 0; i--)
-        //{
-        //    var cell = _cachePool[i];
-        //    var vis = CalcMethods
-        //        .CalcVisiblePercent(cell.OffsetY, cell.BottomLim, ScrollTop, ScrollBottom);
-        //    cell.CachedPercentVis = vis.Percent;
-        //    if (vis.Percent == 0)
-        //    {
-        //        CacheCountBottom++;
-        //    }
-        //    else
-        //    {
-        //        MiddleLogicIndexEnd = cell.LogicIndex;
-        //        break;
-        //    }
-        //}
     }
 
     internal void Clear()
