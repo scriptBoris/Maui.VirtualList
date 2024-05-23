@@ -289,6 +289,9 @@ public class Body : Layout, ILayoutManager
             RequestResize = false;
         }
 
+        if (height < measureViewPortHeight)
+            height = measureViewPortHeight;
+
         return new Size(widthConstraint, height);
     }
 

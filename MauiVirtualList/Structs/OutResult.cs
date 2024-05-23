@@ -6,9 +6,10 @@ namespace MauiVirtualList.Structs;
 [DebuggerDisplay("Vis: {Percent}; VisibleType: {VisibleTypeString};")]
 internal readonly struct OutResult
 {
-    public OutResult(double percent)
+    public OutResult(double percent, double visHeight)
     {
         Percent = percent;
+        Height = visHeight;
         VisibleType = VisibleTypes.Visible;
     }
 
@@ -21,6 +22,12 @@ internal readonly struct OutResult
     /// 0.0 - 1.0 %
     /// </summary>
     public double Percent { get; init; }
+
+    /// <summary>
+    /// Видимая высота элемента
+    /// </summary>
+    public double Height { get; init; }
+
     public VisibleTypes VisibleType { get; init; }
 
 #if DEBUG

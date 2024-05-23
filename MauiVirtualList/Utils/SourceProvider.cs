@@ -293,8 +293,11 @@ internal class SourceProvider : IDisposable
             case NotifyCollectionChangedAction.Move:
                 throw new NotImplementedException();
             case NotifyCollectionChangedAction.Reset:
-                _groups.Clear();
-                _allItems.Clear();
+                if (IsGroups)
+                {
+                    _groups.Clear();
+                    _allItems.Clear();
+                }
                 ItemsCleared?.Invoke();
                 break;
             default:

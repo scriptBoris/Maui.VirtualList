@@ -92,8 +92,8 @@ internal static class CalcMethods
         double elementHeight = elementBottom - elementTop;
 
         // Вычисляем процент отображения
-        double visiblePercentage = (visibleHeight / elementHeight)/* * 100*/;
-        return new OutResult(visiblePercentage);
+        double visiblePercentage = (visibleHeight / elementHeight);
+        return new OutResult(visiblePercentage, visibleHeight);
     }
 
     internal static void RecalcCache(IList<VirtualItem> cachepool, double viewportTop, double viewportBottom,
