@@ -8,5 +8,5 @@ internal interface IScroller
     double ViewPortWidth { get; }
     double ViewPortHeight { get; }
 
-    void SetScrollY(double setupScrollY);
+    bool SetScrollY(double setupScrollY);
 }

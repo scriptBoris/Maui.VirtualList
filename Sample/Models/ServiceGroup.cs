@@ -13,4 +13,9 @@ public class ServiceGroup : ObservableCollection<ServiceItem>
     }
 
     public string GroupName { get; set; }
+
+    public override string ToString()
+    {
+        return $"group_{GroupName}";
+    }
 }

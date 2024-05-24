@@ -15,7 +15,8 @@ public class Body : Layout, ILayoutManager
     private readonly CacheController _cacheController = new();
     private readonly DataTemplate _defaultItemTemplate = new(() => new Label { Text = "NO_TEMPLATE" });
     private readonly IScroller _scroller;
-    private Size _redrawCache;
+    private Rect _drawRectCache;
+    private Size _viewPortSizeCache;
     private View? _emptyView;
     private SourceProvider? ItemsSource;
 
@@ -128,7 +129,7 @@ public class Body : Layout, ILayoutManager
                 return 0;
 
             double perc = _scroller.ScrollY / EstimatedHeight - ViewPortHeight;
-            
+
             if (perc < 0)
                 perc = 0;
             else if (perc > 1)
@@ -209,7 +210,7 @@ public class Body : Layout, ILayoutManager
         if (outTopOffsetY > 0)
         {
             _cacheController.FixOffsetY(outTopOffsetY);
-            
+
             EstimatedHeight += outTopOffsetY;
             this.HardInvalidateMeasure();
 
@@ -249,19 +250,19 @@ public class Body : Layout, ILayoutManager
 
     public Size ArrangeChildren(Rect bounds)
     {
-        double cacheW = _redrawCache.Width;
-        double cacheH = _redrawCache.Height;
-        double reqW = bounds.Size.Width;
-        double reqH = bounds.Size.Height;
-        bool useCache = cacheW.IsEquals(reqW) && cacheH.IsEquals(reqH);
+        bool useCache = 
+            _viewPortSizeCache.Width.IsEquals(_scroller.MeasureViewPortWidth) &&
+            _viewPortSizeCache.Height.IsEquals(_scroller.MeasureViewPortHeight);
 
         if (RequestRedraw)
             useCache = false;
 
         if (useCache)
-            return _redrawCache;
+            return _drawRectCache.Size;
 
-        var drawSize = Redraw();
+        var drawSize = Redraw(bounds);
+        _drawRectCache = bounds;
+        _viewPortSizeCache = new Size(_scroller.MeasureViewPortWidth, _scroller.MeasureViewPortHeight);
         RequestRedraw = false;
         return drawSize;
     }
@@ -300,13 +301,14 @@ public class Body : Layout, ILayoutManager
         return this;
     }
 
-    private Size Redraw()
+    private Size Redraw(Rect? bounds = null)
     {
+        if (bounds == null)
+            bounds = _drawRectCache;
+
         if (ItemsSource == null || ViewPortWidth <= 0 || ViewPortHeight <= 0 || EstimatedHeight <= 0)
         {
-            var rect = new Rect(0, 0, ViewPortWidth, ViewPortHeight);
-            Draw(rect);
-            return rect.Size;
+            return Draw(bounds.Value);
         }
 
         // 0: init view port
@@ -513,35 +515,12 @@ public class Body : Layout, ILayoutManager
         }
 
         // Собственно, рисуем наш cachepool
-        Draw(new Rect(0,0, ViewPortWidth, ViewPortHeight));
-
-        //// TODO приудмать с этим что-то
-        //bool isNoEnd = false;
-        //var lst = _cacheController.LastOrDefault();
-        //if (lst != null)
-        //{
-        //    double lstDelta = EstimatedHeight - lst.BottomLim;
-        //    isNoEnd = lstDelta < -50 && lst.LogicIndex != ItemsSource.Count - 1;
-        //}
-
-        //if (isNoEnd)
-        //{
-        //    //int dif = ItemsSource.Count - lst.LogicIndex;
-        //    EstimatedHeight = EstimatedHeight + 20;
-        //    Debug.WriteLine($"OVERRIDED EstimatedHeight + 20!");
-        //}
-
-        _redrawCache = new Size(ViewPortWidth, ViewPortHeight);
-        return _redrawCache;
+        return Draw(bounds.Value);
     }
 
-    private void Draw(Rect bounds)
+    private Size Draw(Rect boundsValue)
     {
-        if (_emptyView != null)
-        {
-            var r = new Rect(0, 0, bounds.Width, bounds.Height);
-            _emptyView.HardArrange(r);
-        }
+        _emptyView?.HardArrange(boundsValue);
 
         var drawItems = _cacheController.ExclusiveCachePool;
 
@@ -552,14 +531,14 @@ public class Body : Layout, ILayoutManager
             double restartY = 0;
             foreach (var item in drawItems)
             {
-                var r = new Rect(0, restartY, bounds.Width, item.DrawedSize.Height);
+                var r = new Rect(0, restartY, boundsValue.Width, item.DrawedSize.Height);
                 item.HardArrange(r);
                 item.OffsetY = restartY;
                 item.IsCacheTop = false;
                 item.IsCacheBottom = false;
                 restartY += item.DrawedSize.Height;
             }
-            return;
+            return boundsValue.Size;
         }
 
         // DRAW FOR LAST
@@ -574,7 +553,7 @@ public class Body : Layout, ILayoutManager
                 var r = new Rect(
                 x: 0,
                     y: y,
-                    width: bounds.Width,
+                    width: boundsValue.Width,
                     height: item.DrawedSize.Height);
                 item.HardArrange(r);
                 item.OffsetY = y;
@@ -582,20 +561,22 @@ public class Body : Layout, ILayoutManager
                 item.IsCacheBottom = false;
                 restartY -= item.DrawedSize.Height;
             }
-            return;
+            return boundsValue.Size;
         }
 
         // DRAW FOR MIDDLE
         double syncY = drawItems.FirstOrDefault()?.OffsetY ?? 0;
         foreach (var item in drawItems)
         {
-            var r = new Rect(0, syncY, bounds.Width, item.DrawedSize.Height);
+            var r = new Rect(0, syncY, boundsValue.Width, item.DrawedSize.Height);
             item.HardArrange(r);
             item.OffsetY = syncY;
             item.IsCacheTop = false;
             item.IsCacheBottom = false;
             syncY += item.DrawedSize.Height;
         }
+
+        return boundsValue.Size;
     }
 
     /// <summary>
@@ -675,7 +656,7 @@ public class Body : Layout, ILayoutManager
         var parent = (VirtualList)Parent;
         if (parent.EmptyViewTemplate == null)
             requestFrag = false;
-        
+
         if (requestFrag == currentFlag)
             return;
 
@@ -714,8 +695,8 @@ public class Body : Layout, ILayoutManager
     {
         var collection = ItemsSource!;
         var result = _cacheController.RemoveCells(
-            wideindexStart, 
-            deletedIndexes, 
+            wideindexStart,
+            deletedIndexes,
             collection,
             EstimatedHeight,
             ScrollY
@@ -734,20 +715,16 @@ public class Body : Layout, ILayoutManager
         {
             AvgCellHeight = CalcAverageCellHeight();
             EstimatedHeight = result.NewBodyHeight.Value;
-            RequestResize = true;
             this.HardInvalidateMeasure();
         }
 
         if (result.NewScrollY != null)
         {
-            RequestRedraw = true;
-            RequestResize = true;
-            _scroller.SetScrollY(result.NewScrollY.Value);
-            wasRedraw = true;
+            wasRedraw = _scroller.SetScrollY(result.NewScrollY.Value);
         }
 
         if (mustRedraw && !wasRedraw)
-            Redraw();
+            Draw(_drawRectCache);
     }
 
     private void ItemsSource_ItemsCleared()
@@ -801,14 +778,14 @@ public class Body : Layout, ILayoutManager
             if (index > maxIndex)
                 break;
 
-            if (freeViewPort <= 0) 
+            if (freeViewPort <= 0)
                 break;
 
             var cell = BuildCell(index, -1);
             cell.HardMeasure(vpwidth, double.PositiveInfinity);
             cell.OffsetY = newOffsetY;
             cell.CachedPercentVis = CalcMethods.CalcVisiblePercent(cell.OffsetY, cell.BottomLim, ScrollY, viewPortBottomLim).Percent;
-            
+
             newOffsetY += cell.DrawedSize.Height;
             freeViewPort -= cell.DrawedSize.Height;
             index++;

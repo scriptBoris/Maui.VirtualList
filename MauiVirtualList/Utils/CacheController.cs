@@ -410,7 +410,7 @@ internal class CacheController
                         Debugger.Break();
 
                     cell.Shift(shiftIndex, source);
-                    cell.Measure(ViewPortWidth, double.PositiveInfinity);
+                    cell.HardMeasure(ViewPortWidth, double.PositiveInfinity);
                     cell.OffsetY = offsetY;
 
                     offsetY += cell.DrawedSize.Height;
