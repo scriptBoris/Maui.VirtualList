@@ -9,8 +9,6 @@
              Title="AdvanceGroupListPage"
              x:Name="root"
              BackgroundColor="{AppThemeBinding Light=#e2e0e1, Dark=#333}">
-
-    <!--BackgroundColor="#f2f0f1"-->
     <list:VirtualList x:Name="list"
                       Padding="0,0,0,10">
         <list:VirtualList.GroupHeaderTemplate>

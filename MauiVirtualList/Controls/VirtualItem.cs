@@ -95,6 +95,7 @@ public class VirtualItem : Layout, ILayoutManager
         {
             LogicIndex = newLogicalIndex;
             _content.BindingContext = context;
+            this.HardInvalidateMeasure();
             DesiredSize = Size.Zero;
             AwaitRecalcMeasure = true;
         }
@@ -127,6 +128,7 @@ public class VirtualItem : Layout, ILayoutManager
             Children.Add(_content);
             LogicIndex = newLogicalIndex;
             _content.BindingContext = context;
+            this.HardInvalidateMeasure();
             DesiredSize = Size.Zero;
             AwaitRecalcMeasure = true;
         }

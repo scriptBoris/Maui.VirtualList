@@ -1,7 +1,5 @@
 ﻿using System.Collections;
 using System.Diagnostics;
-using Android.Widget;
-using Kotlin.Time;
 using MauiVirtualList.Controls;
 using MauiVirtualList.Enums;
 
@@ -16,10 +14,7 @@ internal class ShifleCacheController
         _scroller = scroller;
     }
 
-    internal double ScrollTop => _scroller.ScrollY;
-    internal double ScrollBottom => _scroller.ScrollY + _scroller.ViewPortHeight;
-
-    internal bool Shifle2(ShifleCacheRules Rule, CacheController cachePool, SourceProvider itemsSource, ref int unsolvedCacheCount)
+    private bool Shifle(ShifleCacheRules Rule, CacheController cachePool, SourceProvider itemsSource, ref int unsolvedCacheCount)
     {
         bool useT2B = false;
         bool useB2T = false;
@@ -66,13 +61,8 @@ internal class ShifleCacheController
             cachePool.Remove(first);
             first.LogicIndex = newIndex;
             first.Shift(newIndex, itemsSource);
-            first.HardMeasure(cachePool.ViewPortWidth, double.PositiveInfinity);
-            first.OffsetY = pre.BottomLim + first.HardMeasure(cachePool.ViewPortWidth, double.PositiveInfinity).Height;
-
-            // TODO Возможно это лишнее действие
-            first.CachedPercentVis = CalcMethods.CalcVisiblePercent(first.OffsetY, first.BottomLim, ScrollTop, ScrollBottom).Percent;
-            if (first.CachedPercentVis > 0)
-                Debugger.Break();
+            first.HardMeasure(_scroller.ViewPortWidth, double.PositiveInfinity);
+            first.OffsetY = pre.BottomLim;
 
             cachePool.Add(first);
             unsolvedCacheCount--;
@@ -90,13 +80,8 @@ internal class ShifleCacheController
             var pre = cachePool.First();
             last.LogicIndex = pre.LogicIndex - 1;
             last.Shift(last.LogicIndex, itemsSource);
-            last.HardMeasure(cachePool.ViewPortWidth, double.PositiveInfinity);
-            last.OffsetY = pre.OffsetY - last.HardMeasure(cachePool.ViewPortWidth, double.PositiveInfinity).Height;
-
-            // TODO Возможно это лишнее действие
-            last.CachedPercentVis = CalcMethods.CalcVisiblePercent(last.OffsetY, last.BottomLim, ScrollTop, ScrollBottom).Percent;
-            if (last.CachedPercentVis > 0)
-                Debugger.Break();
+            last.HardMeasure(_scroller.ViewPortWidth, double.PositiveInfinity);
+            last.OffsetY = pre.OffsetY - last.DrawedSize.Height;
 
             cachePool.Insert(0, last);
             unsolvedCacheCount--;
@@ -111,7 +96,7 @@ internal class ShifleCacheController
         int unsolvedCacheCount = cacheController.CacheCount;
         while (true)
         {
-            bool isEnough = Shifle2(rule, cacheController, source, ref unsolvedCacheCount);
+            bool isEnough = Shifle(rule, cacheController, source, ref unsolvedCacheCount);
 
             if (isEnough)
                 break;
