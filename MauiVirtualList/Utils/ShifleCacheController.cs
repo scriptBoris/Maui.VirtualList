@@ -1,5 +1,7 @@
 ﻿using System.Collections;
 using System.Diagnostics;
+using Android.Widget;
+using Kotlin.Time;
 using MauiVirtualList.Controls;
 using MauiVirtualList.Enums;
 
@@ -7,11 +9,17 @@ namespace MauiVirtualList.Utils;
 
 internal class ShifleCacheController
 {
-    internal ShifleCacheRules Rule {  get; set; }
-    internal double ScrollTop { get; set; }
-    internal double ScrollBottom { get; set; }
+    private readonly IScroller _scroller;
 
-    internal bool Shifle2(CacheController cachePool, SourceProvider itemsSource, ref int unsolvedCacheCount)
+    public ShifleCacheController(IScroller scroller)
+    {
+        _scroller = scroller;
+    }
+
+    internal double ScrollTop => _scroller.ScrollY;
+    internal double ScrollBottom => _scroller.ScrollY + _scroller.ViewPortHeight;
+
+    internal bool Shifle2(ShifleCacheRules Rule, CacheController cachePool, SourceProvider itemsSource, ref int unsolvedCacheCount)
     {
         bool useT2B = false;
         bool useB2T = false;
@@ -59,7 +67,6 @@ internal class ShifleCacheController
             first.LogicIndex = newIndex;
             first.Shift(newIndex, itemsSource);
             first.HardMeasure(cachePool.ViewPortWidth, double.PositiveInfinity);
-            //first.Content.BindingContext = itemsSource[newIndex];
             first.OffsetY = pre.BottomLim + first.HardMeasure(cachePool.ViewPortWidth, double.PositiveInfinity).Height;
 
             // TODO Возможно это лишнее действие
@@ -84,7 +91,6 @@ internal class ShifleCacheController
             last.LogicIndex = pre.LogicIndex - 1;
             last.Shift(last.LogicIndex, itemsSource);
             last.HardMeasure(cachePool.ViewPortWidth, double.PositiveInfinity);
-            //last.Content.BindingContext = itemsSource[last.LogicIndex];
             last.OffsetY = pre.OffsetY - last.HardMeasure(cachePool.ViewPortWidth, double.PositiveInfinity).Height;
 
             // TODO Возможно это лишнее действие
@@ -98,5 +104,17 @@ internal class ShifleCacheController
         }
 
         return false;
+    }
+
+    internal void UseShifle(ShifleCacheRules rule, CacheController cacheController, SourceProvider source)
+    {
+        int unsolvedCacheCount = cacheController.CacheCount;
+        while (true)
+        {
+            bool isEnough = Shifle2(rule, cacheController, source, ref unsolvedCacheCount);
+
+            if (isEnough)
+                break;
+        }
     }
 }

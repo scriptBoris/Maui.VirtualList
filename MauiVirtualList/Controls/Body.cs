@@ -11,10 +11,10 @@ namespace MauiVirtualList.Controls;
 
 public class Body : Layout, ILayoutManager
 {
-    private readonly ShifleCacheController _shifleController = new();
+    private readonly IScroller _scroller;
+    private readonly ShifleCacheController _shifleController;
     private readonly CacheController _cacheController = new();
     private readonly DataTemplate _defaultItemTemplate = new(() => new Label { Text = "NO_TEMPLATE" });
-    private readonly IScroller _scroller;
     private Rect _drawRectCache;
     private Size _viewPortSizeCache;
     private View? _emptyView;
@@ -23,6 +23,7 @@ public class Body : Layout, ILayoutManager
     internal Body(IScroller scroller)
     {
         _scroller = scroller;
+        _shifleController = new(scroller);
     }
 
     #region bindable props
@@ -451,24 +452,14 @@ public class Body : Layout, ILayoutManager
 
         // 4: shifle cache
         // Алгоритм распределяет верхний и нижний кэш поровну
-        int unsolvedCacheCount = _cacheController.CacheCount;
         var rule = ShifleCacheRules.Default;
         if (_cacheController.MiddleLogicIndexStart == 0)
             rule = ShifleCacheRules.NoCacheTop;
         else if (_cacheController.MiddleLogicIndexEnd == ItemsSource.Count - 1)
             rule = ShifleCacheRules.NoCacheBottom;
 
-        _shifleController.Rule = rule;
-        _shifleController.ScrollTop = ScrollY;
-        _shifleController.ScrollBottom = ViewPortBottomLim;
-        while (true)
-        {
-            bool isEnough = _shifleController.Shifle2(_cacheController, ItemsSource, ref unsolvedCacheCount);
-
-            if (isEnough)
-                break;
-        }
-
+        _shifleController.UseShifle(rule, _cacheController, ItemsSource);
+        
         // 5: IndexLogic error correction
         // Проходимся по КЭШ элементам, если находим ошибки непоследовательности
         // ItemsSource - фиксим их
