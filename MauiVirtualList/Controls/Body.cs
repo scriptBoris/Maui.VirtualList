@@ -9,7 +9,7 @@ using MauiVirtualList.Structs;
 
 namespace MauiVirtualList.Controls;
 
-public class Body : Layout, ILayoutManager
+public class Body : Layout, IBody, ILayoutManager
 {
     private readonly IScroller _scroller;
     private readonly ShifleCacheController _shifleController;
@@ -19,6 +19,9 @@ public class Body : Layout, ILayoutManager
     private Size _viewPortSizeCache;
     private View? _emptyView;
     private SourceProvider? ItemsSource;
+
+    // todo может быть это не нужно?
+    private DrawCalculatingMarker _drawingMarker = new(false);
 
     internal Body(IScroller scroller)
     {
@@ -190,6 +193,7 @@ public class Body : Layout, ILayoutManager
 
     public void Scrolled(double scrolledY, double vp_width, double vp_height)
     {
+        using var busy = StartCalc();
         _cacheController.UseViewFrame(ViewPortWidth, ViewPortHeight, scrolledY, ViewPortBottomLim);
 
         if (vp_height > DeviceDisplay.Current.MainDisplayInfo.Height)
@@ -613,7 +617,7 @@ public class Body : Layout, ILayoutManager
         }
 
         userView.BindingContext = context;
-        var cell = new VirtualItem(userView, templateType)
+        var cell = new VirtualItem(userView, templateType, _scroller, this)
         {
             LogicIndex = logicIndex,
         };
@@ -637,6 +641,16 @@ public class Body : Layout, ILayoutManager
         Children.Add(cell);
 
         return cell;
+    }
+
+    void IBody.InvalidateVirtualCell(VirtualItem cell, double deltaHeight)
+    {
+        if (_drawingMarker.IsContinueCalculating)
+            return;
+
+        EstimatedHeight += deltaHeight;
+        this.HardInvalidateMeasure();
+        Draw(_drawRectCache);
     }
 
     internal void ResolveEmptyView()
@@ -758,6 +772,7 @@ public class Body : Layout, ILayoutManager
 
     private void InitStartedCells(double vpwidth, double vpheight)
     {
+        using var busy = StartCalc();
         int index = 0;
         double newOffsetY = 0;
         double freeViewPort = vpheight;
@@ -781,5 +796,11 @@ public class Body : Layout, ILayoutManager
             freeViewPort -= cell.DrawedSize.Height;
             index++;
         }
+    }
+
+    private IDisposable StartCalc()
+    {
+        _drawingMarker = new DrawCalculatingMarker(true);
+        return _drawingMarker;
     }
 }

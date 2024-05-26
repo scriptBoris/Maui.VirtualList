@@ -10,15 +10,17 @@ namespace MauiVirtualList.Controls;
 public class VirtualItem : Layout, ILayoutManager
 {
     private readonly Dictionary<DoubleTypes, View> _cache = [];
-    private View _content;
+    private readonly WeakReference<IScroller> _scroller;
+    private readonly WeakReference<IBody> _body;
+    private View? _content;
 
-    internal VirtualItem(View content, DoubleTypes templateType)
+    internal VirtualItem(View content, DoubleTypes templateType, IScroller scroller, IBody body)
     {
-        _content = content;
-        TemplateType = templateType;
-        Children.Add(content);
-
         _cache.Add(templateType, content);
+        _scroller = new(scroller);
+        _body = new(body);
+        Content = content;
+        TemplateType = templateType;
     }
 
     internal DoubleTypes TemplateType { get; private set; }
@@ -50,39 +52,53 @@ public class VirtualItem : Layout, ILayoutManager
     /// </summary>
     public bool AwaitRecalcMeasure { get; private set; } = true;
 
-    #if DEBUG
-    public string DBGINFO => _content.BindingContext.ToString() ?? "<No data>";
-    #endif
-    
+    private View Content
+    {
+        get => _content!;
+        set 
+        {
+            if (value == _content)
+                return;
+
+            var old = _content;
+            if (old != null)
+            {
+                Unsubscribe(old);
+                old.BindingContext = null;
+                Children.Remove(old);
+            }
+            _content = value;
+            Children.Add(value);
+            Subscribe(value);
+        }
+    }
+
+#if DEBUG
+    public string DBGINFO => Content.BindingContext.ToString() ?? "<No data>";
+#endif
+
+    protected override Size ArrangeOverride(Rect bounds)
+    {
+        return base.ArrangeOverride(bounds);
+    }
+
     public Size ArrangeChildren(Rect bounds)
     {
-        _content.HardArrange(bounds);
-        //Debug.WriteLine($"ITEM ARRANGE CHILDREN: {res}");
-        return bounds.Size;
+        var res = Content.HardArrange(bounds);
+        return res;
     }
 
     public Size Measure(double widthConstraint, double heightConstraint)
     {
-        var size = _content.HardMeasure(widthConstraint, heightConstraint);
+        var size = Content.HardMeasure(widthConstraint, heightConstraint);
         DesiredSize = size;
         AwaitRecalcMeasure = false;
-        //Debug.WriteLine($"ITEM MEASURE: {size}");
         return size;
     }
 
     protected override ILayoutManager CreateLayoutManager()
     {
         return this;
-    }
-
-    protected override void InvalidateMeasure()
-    {
-        base.InvalidateMeasure();
-    }
-
-    protected override void InvalidateMeasureOverride()
-    {
-        base.InvalidateMeasureOverride();
     }
 
     internal void Shift(int newLogicalIndex, SourceProvider source)
@@ -93,22 +109,20 @@ public class VirtualItem : Layout, ILayoutManager
         //this.BatchBegin();
         if (templateType == TemplateType)
         {
+            AwaitRecalcMeasure = true;
             LogicIndex = newLogicalIndex;
-            _content.BindingContext = context;
+            Content.BindingContext = context;
             this.HardInvalidateMeasure();
             DesiredSize = Size.Zero;
-            AwaitRecalcMeasure = true;
         }
         else
         {
             var parent = (Body)Parent;
-            var old = _content;
-            old.BindingContext = null;
-            Children.Remove(old);
+            View newContent;
 
-            if (_cache.TryGetValue(templateType, out var vv))
+            if (_cache.TryGetValue(templateType, out var existView))
             {
-                _content = vv;
+                newContent = existView;
             }
             else
             {
@@ -120,18 +134,80 @@ public class VirtualItem : Layout, ILayoutManager
                     _ => throw new InvalidOperationException(),
                 } ?? throw new InvalidOperationException();
 
-                _content = createdView;
-                _cache.Add(templateType, _content);
+                newContent = createdView;
+                _cache.Add(templateType, newContent);
             }
 
+            AwaitRecalcMeasure = true;
             TemplateType = templateType;
-            Children.Add(_content);
             LogicIndex = newLogicalIndex;
-            _content.BindingContext = context;
+            Content = newContent;
+            Content.BindingContext = context;
             this.HardInvalidateMeasure();
             DesiredSize = Size.Zero;
-            AwaitRecalcMeasure = true;
         }
         //this.BatchCommit();
+    }
+
+    private void Unsubscribe(IVisualTreeElement view)
+    {
+        if (view is View v)
+        {
+            v.MeasureInvalidated -= SubviewMeasureInvalidated;
+            v.ChildAdded -= SubviewChildAdded;
+            v.ChildRemoved -= SubviewChildRemoved;
+        }
+
+        var tree = view.GetVisualChildren();
+        foreach (var child in tree)
+        {
+            Unsubscribe(child);
+        }
+    }
+
+    private void Subscribe(IVisualTreeElement view)
+    {
+        if (view is View v)
+        {
+            v.MeasureInvalidated += SubviewMeasureInvalidated;
+            v.ChildAdded += SubviewChildAdded;
+            v.ChildRemoved += SubviewChildRemoved;
+        }
+
+        var tree = view.GetVisualChildren();
+        foreach (var child in tree)
+        {
+            Subscribe(child);
+        }
+    }
+
+    private void SubviewChildAdded(object? sender, ElementEventArgs e)
+    {
+        Subscribe(e.Element);
+    }
+
+    private void SubviewChildRemoved(object? sender, ElementEventArgs e)
+    {
+        Unsubscribe(e.Element);
+    }
+
+    private void SubviewMeasureInvalidated(object? sender, EventArgs e)
+    {
+        if (!_scroller.TryGetTarget(out var scroller))
+            return;
+
+        if (!_body.TryGetTarget(out var body)) 
+            return;
+
+        if (AwaitRecalcMeasure)
+            return;
+
+        var oldSize = DrawedSize;
+        var newSize = this.HardMeasure(scroller.ViewPortWidth, double.PositiveInfinity);
+        if (newSize != oldSize)
+        {
+            double deltaH = newSize.Height - oldSize.Height;
+            body.InvalidateVirtualCell(this, deltaH);
+        }
     }
 }

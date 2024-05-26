@@ -1,6 +1,7 @@
 using Sample.Models;
 using Sample.Utils;
 using System.Collections.ObjectModel;
+using System.Windows.Input;
 
 namespace Sample.Pages;
 
@@ -9,6 +10,7 @@ public partial class CollectionViewPage : ContentPage
 	public CollectionViewPage()
 	{
 		InitializeComponent();
+        CommandShowHideBio = new Command<User>(ActionShowHideBio);
 
         var users = new ObservableCollection<User>();
         for (int i = 0; i < 50; i++)
@@ -31,5 +33,16 @@ public partial class CollectionViewPage : ContentPage
         }
 
         collectionView.ItemsSource = users;
+    }
+
+    public ICommand CommandShowHideBio { get; }
+    private void ActionShowHideBio(User user)
+    {
+        user.ShowBio = !user.ShowBio;
+    }
+
+    private void Border_MeasureInvalidated(object sender, EventArgs e)
+    {
+
     }
 }
