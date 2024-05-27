@@ -1,6 +1,6 @@
 ﻿namespace MauiVirtualList.Enums;
 
-internal enum DoubleTypes
+internal enum TemplateItemType
 {
     Header,
     Item,

@@ -464,6 +464,12 @@ internal class CacheController
                     regoffset = lastItem.OffsetY - rmHeight;
                     newScrollY = (regoffset + lastItem.DrawedSize.Height) - ViewPortHeight;
                 }
+                // Если не осталось элементов
+                else if (source.Count == 0)
+                {
+                    regoffset = 0;
+                    newScrollY = 0;
+                }
                 // если последний, уже отрисованный элемент не найден
                 // то "насильно создаем" последний элемент в конец тела прокрутки
                 else
@@ -479,6 +485,9 @@ internal class CacheController
                 double freeh = ViewPortHeight;
                 while (true)
                 {
+                    if (reglogicindex < 0)
+                        break;
+
                     VirtualItem reg;
                     if (removeItems.Count > 0)
                     {
@@ -609,13 +618,13 @@ internal class CacheController
         {
             switch (item.TemplateType)
             {
-                case DoubleTypes.Header:
+                case TemplateItemType.Header:
                     _cachesAvgHeaders.Add(item.DrawedSize.Height);
                     break;
-                case DoubleTypes.Item:
+                case TemplateItemType.Item:
                     _cachesAvgItems.Add(item.DrawedSize.Height);
                     break;
-                case DoubleTypes.Footer:
+                case TemplateItemType.Footer:
                     _cachesAvgFooters.Add(item.DrawedSize.Height);
                     break;
                 default:

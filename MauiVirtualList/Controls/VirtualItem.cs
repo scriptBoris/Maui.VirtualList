@@ -9,12 +9,12 @@ namespace MauiVirtualList.Controls;
 [DebuggerDisplay("Index: {LogicIndex}; OffsetY: {OffsetY}; Vis: {CachedPercentVis} | {DBGINFO}")]
 public class VirtualItem : Layout, ILayoutManager
 {
-    private readonly Dictionary<DoubleTypes, View> _cache = [];
+    private readonly Dictionary<TemplateItemType, View> _cache = [];
     private readonly WeakReference<IScroller> _scroller;
     private readonly WeakReference<IBody> _body;
     private View? _content;
 
-    internal VirtualItem(View content, DoubleTypes templateType, IScroller scroller, IBody body)
+    internal VirtualItem(View content, TemplateItemType templateType, IScroller scroller, IBody body)
     {
         _cache.Add(templateType, content);
         _scroller = new(scroller);
@@ -23,7 +23,7 @@ public class VirtualItem : Layout, ILayoutManager
         TemplateType = templateType;
     }
 
-    internal DoubleTypes TemplateType { get; private set; }
+    internal TemplateItemType TemplateType { get; private set; }
 
     /// <summary>
     /// Верхний порог
@@ -67,9 +67,14 @@ public class VirtualItem : Layout, ILayoutManager
                 old.BindingContext = null;
                 Children.Remove(old);
             }
+            
             _content = value;
-            Children.Add(value);
-            Subscribe(value);
+
+            if (value != null)
+            {
+                Children.Add(value);
+                Subscribe(value);
+            }
         }
     }
 
@@ -101,6 +106,11 @@ public class VirtualItem : Layout, ILayoutManager
         return this;
     }
 
+    internal void Deactivate()
+    {
+        Content = null!;
+    }
+
     internal void Shift(int newLogicalIndex, SourceProvider source)
     {
         var context = source[newLogicalIndex];
@@ -128,9 +138,9 @@ public class VirtualItem : Layout, ILayoutManager
             {
                 var createdView = templateType switch
                 {
-                    DoubleTypes.Header => parent.GroupHeaderTemplate?.CreateContent() as View,
-                    DoubleTypes.Item => parent.ItemTemplate.CreateContent() as View,
-                    DoubleTypes.Footer => parent.GroupFooterTemplate?.CreateContent() as View,
+                    TemplateItemType.Header => parent.GroupHeaderTemplate?.CreateContent() as View,
+                    TemplateItemType.Item => parent.ItemTemplate.CreateContent() as View,
+                    TemplateItemType.Footer => parent.GroupFooterTemplate?.CreateContent() as View,
                     _ => throw new InvalidOperationException(),
                 } ?? throw new InvalidOperationException();
 

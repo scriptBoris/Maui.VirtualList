@@ -591,15 +591,15 @@ public class Body : Layout, IBody, ILayoutManager
 
         switch (templateType)
         {
-            case DoubleTypes.Header:
+            case TemplateItemType.Header:
                 template = GroupHeaderTemplate;
                 isRequired = false;
                 break;
-            case DoubleTypes.Item:
+            case TemplateItemType.Item:
                 template = ItemTemplate ?? _defaultItemTemplate;
                 isRequired = true;
                 break;
-            case DoubleTypes.Footer:
+            case TemplateItemType.Footer:
                 template = GroupFooterTemplate;
                 isRequired = false;
                 break;
@@ -641,6 +641,13 @@ public class Body : Layout, IBody, ILayoutManager
         Children.Add(cell);
 
         return cell;
+    }
+
+    internal void RemoveCell(VirtualItem cell)
+    {
+        _cacheController.Remove(cell);
+        Children.Remove(cell);
+        cell.Deactivate();
     }
 
     void IBody.InvalidateVirtualCell(VirtualItem cell, double deltaHeight)
@@ -708,7 +715,7 @@ public class Body : Layout, IBody, ILayoutManager
         );
 
         foreach (var item in result.DeleteItems)
-            Children.Remove(item);
+            RemoveCell(item);
 
         bool mustRedraw = result.MustBeRedraw;
         bool wasRedraw = false;
@@ -735,7 +742,7 @@ public class Body : Layout, IBody, ILayoutManager
     private void ItemsSource_ItemsCleared()
     {
         foreach (var item in _cacheController.ExclusiveCachePool)
-            Children.Remove(item);
+            RemoveCell(item);
 
         _cacheController.Clear();
 

@@ -73,10 +73,10 @@ internal class SourceProvider : IDisposable
     public bool UsedFooters { get; private set; }
     #endregion props
 
-    internal DoubleTypes GetTypeItem(int index)
+    internal TemplateItemType GetTypeItem(int index)
     {
         if (!_isGroups)
-            return DoubleTypes.Item;
+            return TemplateItemType.Item;
 
         var item = _allItems[index];
         return item.Type;
@@ -103,21 +103,21 @@ internal class SourceProvider : IDisposable
             // header
             if (useHeaders)
             {
-                _allItems.Add(new SourceItem(DoubleTypes.Header, group));
+                _allItems.Add(new SourceItem(TemplateItemType.Header, group));
                 itemIndex++;
             }
 
             // items
             foreach (var item in group)
             {
-                _allItems.Add(new SourceItem(DoubleTypes.Item, item));
+                _allItems.Add(new SourceItem(TemplateItemType.Item, item));
                 itemIndex++;
             }
 
             // footer
             if (useFooters)
             {
-                _allItems.Add(new SourceItem(DoubleTypes.Footer, group));
+                _allItems.Add(new SourceItem(TemplateItemType.Footer, group));
                 itemIndex++;
             }
         }
@@ -223,7 +223,7 @@ internal class SourceProvider : IDisposable
                     // header
                     if (UsedHeaders)
                     {
-                        _allItems.Insert(index, new SourceItem(DoubleTypes.Header, newGroupItem));
+                        _allItems.Insert(index, new SourceItem(TemplateItemType.Header, newGroupItem));
                         index++;
                     }
 
@@ -232,20 +232,20 @@ internal class SourceProvider : IDisposable
                     {
                         foreach (var item in enumerable)
                         {
-                            _allItems.Insert(index, new SourceItem(DoubleTypes.Item, item));
+                            _allItems.Insert(index, new SourceItem(TemplateItemType.Item, item));
                             index++;
                         }
                     }
                     else
                     {
-                        _allItems.Insert(index, new SourceItem(DoubleTypes.Item, newGroupItem));
+                        _allItems.Insert(index, new SourceItem(TemplateItemType.Item, newGroupItem));
                         index++;
                     }
 
                     // footer
                     if (UsedFooters)
                     {
-                        _allItems.Insert(index, new SourceItem(DoubleTypes.Footer, newGroupItem));
+                        _allItems.Insert(index, new SourceItem(TemplateItemType.Footer, newGroupItem));
                     }
 
                     // shift under groups
@@ -423,13 +423,13 @@ internal class SourceProvider : IDisposable
     [DebuggerDisplay("{Index} | {Context}")]
     private class SourceItem
     {
-        public SourceItem(DoubleTypes type, object context)
+        public SourceItem(TemplateItemType type, object context)
         {
             Type = type;
             Context = context;
         }
 
-        public DoubleTypes Type { get; }
+        public TemplateItemType Type { get; }
         public object Context { get; }
     }
 }
