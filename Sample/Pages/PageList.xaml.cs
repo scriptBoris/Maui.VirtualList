@@ -1,4 +1,4 @@
-﻿using MauiVirtualList.Args;
+﻿using Maui.VirtualList.Args;
 using Sample.Models;
 using Sample.Utils;
 using System.Collections.ObjectModel;

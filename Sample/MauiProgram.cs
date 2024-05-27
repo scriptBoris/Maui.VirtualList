@@ -1,6 +1,6 @@
 ﻿using FFImageLoading.Maui;
 using Microsoft.Extensions.Logging;
-using MauiVirtualList;
+using Maui.VirtualList;
 
 namespace Sample
 {

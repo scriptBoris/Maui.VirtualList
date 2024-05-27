@@ -1,5 +1,5 @@
-﻿using MauiVirtualList.Controls;
-using MauiVirtualList.Utils;
+﻿using Maui.VirtualList.Controls;
+using Maui.VirtualList.Utils;
 using Microsoft.Maui.Layouts;
 using System.Collections;
 
