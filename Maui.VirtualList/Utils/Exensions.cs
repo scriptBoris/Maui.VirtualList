@@ -12,10 +12,25 @@ public static class Exensions
         ((IView)view).InvalidateMeasure();
     }
 
+    // У винды другое представлении о компановке элементов на экране
+#if WINDOWS
     public static Size HardArrange(this View view, Rect rect)
     {
-        return ((IView)view).Arrange(rect);
+        var m = view.Margin;
+        double x = rect.X - m.Left;
+        double y = rect.Y - m.Top;
+        var r = new Rect(x, y, rect.Width, rect.Height);
+        var res = ((IView)view).Arrange(r);
+        var res2 = new Size(res.Width, res.Height-m.VerticalThickness);
+        return res2;
     }
+#else
+    public static Size HardArrange(this View view, Rect rect)
+    {
+        var res = ((IView)view).Arrange(rect);
+        return res;
+    }
+#endif
 
     public static Size HardMeasure(this View view, double widthConstraint, double heightConstraint)
     {

@@ -55,7 +55,7 @@ public class VirtualItem : Layout, ILayoutManager
     private View Content
     {
         get => _content!;
-        set 
+        set
         {
             if (value == _content)
                 return;
@@ -67,7 +67,7 @@ public class VirtualItem : Layout, ILayoutManager
                 old.BindingContext = null;
                 Children.Remove(old);
             }
-            
+
             _content = value;
 
             if (value != null)
@@ -81,11 +81,6 @@ public class VirtualItem : Layout, ILayoutManager
 #if DEBUG
     public string DBGINFO => Content.BindingContext.ToString() ?? "<No data>";
 #endif
-
-    protected override Size ArrangeOverride(Rect bounds)
-    {
-        return base.ArrangeOverride(bounds);
-    }
 
     public Size ArrangeChildren(Rect bounds)
     {
@@ -206,7 +201,7 @@ public class VirtualItem : Layout, ILayoutManager
         if (!_scroller.TryGetTarget(out var scroller))
             return;
 
-        if (!_body.TryGetTarget(out var body)) 
+        if (!_body.TryGetTarget(out var body))
             return;
 
         if (AwaitRecalcMeasure)

@@ -205,11 +205,6 @@ public class Body : Layout, IBody, ILayoutManager
         if (ItemsSource == null)
             return;
 
-        // todo сделать для винды отрисовку напрямую, но перед этим измерять размеры
-#if WINDOWS
-        // У винды особое представление о рисовании элементов
-        this.HardInvalidateMeasure();
-#else
         // если есть элементы за offsetY < 0
         double outTopOffsetY = _cacheController.OutTopOffsetY();
         if (outTopOffsetY > 0)
@@ -232,6 +227,11 @@ public class Body : Layout, IBody, ILayoutManager
             return;
         }
 
+#if WINDOWS
+        // У винды особое представление о рисовании элементов
+        RequestRedraw = true;
+        this.HardInvalidateMeasure();
+#else
         // Вызываем прямую перерисовку элементов (для повышения производительности)
         Redraw();
 #endif
@@ -263,7 +263,16 @@ public class Body : Layout, IBody, ILayoutManager
             useCache = false;
 
         if (useCache)
+        {
+
+// на ШЫНДОВСЕ обязательно нужно перерисовывать все элементы!
+#if WINDOWS
+            return Draw(bounds);
+// на мобилках можно использовать уже отрисованный кэш, для улучшения производительности
+#else
             return _drawRectCache.Size;
+#endif
+        }
 
         var drawSize = Redraw(bounds);
         _drawRectCache = bounds;
@@ -527,11 +536,11 @@ public class Body : Layout, IBody, ILayoutManager
             foreach (var item in drawItems)
             {
                 var r = new Rect(0, restartY, boundsValue.Width, item.DrawedSize.Height);
-                item.HardArrange(r);
+                var drawSize = item.HardArrange(r);
                 item.OffsetY = restartY;
                 item.IsCacheTop = false;
                 item.IsCacheBottom = false;
-                restartY += item.DrawedSize.Height;
+                restartY += drawSize.Height;
             }
             return boundsValue.Size;
         }
@@ -546,15 +555,15 @@ public class Body : Layout, IBody, ILayoutManager
                 var item = drawItems[i];
                 double y = restartY - item.DrawedSize.Height;
                 var r = new Rect(
-                x: 0,
+                    x: 0,
                     y: y,
                     width: boundsValue.Width,
                     height: item.DrawedSize.Height);
-                item.HardArrange(r);
+                var drawSize = item.HardArrange(r);
                 item.OffsetY = y;
                 item.IsCacheTop = false;
                 item.IsCacheBottom = false;
-                restartY -= item.DrawedSize.Height;
+                restartY -= drawSize.Height;
             }
             return boundsValue.Size;
         }
@@ -564,11 +573,11 @@ public class Body : Layout, IBody, ILayoutManager
         foreach (var item in drawItems)
         {
             var r = new Rect(0, syncY, boundsValue.Width, item.DrawedSize.Height);
-            item.HardArrange(r);
+            var drawSize = item.HardArrange(r);
             item.OffsetY = syncY;
             item.IsCacheTop = false;
             item.IsCacheBottom = false;
-            syncY += item.DrawedSize.Height;
+            syncY += drawSize.Height;
         }
 
         return boundsValue.Size;
@@ -741,6 +750,7 @@ public class Body : Layout, IBody, ILayoutManager
 
     private void ItemsSource_ItemsCleared()
     {
+        // todo исключение модификация коллекции во время foreach
         foreach (var item in _cacheController.ExclusiveCachePool)
             RemoveCell(item);
 
