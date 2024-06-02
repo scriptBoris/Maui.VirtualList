@@ -1,6 +1,6 @@
 ﻿using FFImageLoading.Maui;
 using Microsoft.Extensions.Logging;
-using Maui.CrossPlatform.VirtualList;
+using VirtualList.Maui;
 
 namespace Sample
 {
@@ -12,7 +12,7 @@ namespace Sample
             builder
                 .UseMauiApp<App>()
                 .UseFFImageLoading()
-                .UseMauiVirtualList()
+                .UseVirtualListMaui()
 
                 .ConfigureFonts(fonts =>
                 {
