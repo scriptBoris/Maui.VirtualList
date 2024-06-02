@@ -2,7 +2,7 @@
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:models="clr-namespace:Sample.Models"
-             xmlns:virtualList="clr-namespace:Maui.VirtualList;assembly=Maui.VirtualList"
+             xmlns:virtualList="clr-namespace:Maui.CrossPlatform.VirtualList;assembly=Maui.CrossPlatform.VirtualList"
              x:Class="Sample.Pages.PageListMaui"
              Title="Virtual list">
 

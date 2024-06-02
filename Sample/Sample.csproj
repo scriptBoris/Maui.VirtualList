@@ -66,7 +66,7 @@
 	</ItemGroup>
 
 	<ItemGroup>
-	  <ProjectReference Include="..\Maui.VirtualList\Maui.VirtualList.csproj" />
+	  <ProjectReference Include="..\Maui.CrossPlatform.VirtualList\Maui.CrossPlatform.VirtualList.csproj" />
 	</ItemGroup>
 
 	<ItemGroup>
