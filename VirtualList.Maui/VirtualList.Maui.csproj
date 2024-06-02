@@ -18,6 +18,8 @@
 		<Authors>Boris Krit</Authors>
 		<Company />
 		<Copyright>MIT</Copyright>
+		<PackageReadmeFile>README.md</PackageReadmeFile>
+		<PackageLicenseExpression>MIT</PackageLicenseExpression>
 		<PackageTags>maui, collectionview, listview, virtual, list</PackageTags>
 		<GeneratePackageOnBuild>True</GeneratePackageOnBuild>
 		<PublishAot>True</PublishAot>
