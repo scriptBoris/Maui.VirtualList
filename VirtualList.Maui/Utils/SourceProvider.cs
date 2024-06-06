@@ -89,36 +89,39 @@ internal class SourceProvider : IDisposable
         if (_recalcCache == newCache)
             return;
 
-        _allItems.Clear();
-        _groups.Clear();
         _recalcCache = newCache;
         UsedHeaders = useHeaders;
         UsedFooters = useFooters;
 
-        int itemIndex = 0;
-        foreach (var group in _sourceAsGroups)
+        if (IsGroups)
         {
-            _groups.Add(new Group(this, group, itemIndex, useHeaders, useFooters));
-
-            // header
-            if (useHeaders)
+            _allItems.Clear();
+            _groups.Clear();
+            int itemIndex = 0;
+            foreach (var group in _sourceAsGroups)
             {
-                _allItems.Add(new SourceItem(TemplateItemType.Header, group));
-                itemIndex++;
-            }
+                _groups.Add(new Group(this, group, itemIndex, useHeaders, useFooters));
 
-            // items
-            foreach (var item in group)
-            {
-                _allItems.Add(new SourceItem(TemplateItemType.Item, item));
-                itemIndex++;
-            }
+                // header
+                if (useHeaders)
+                {
+                    _allItems.Add(new SourceItem(TemplateItemType.Header, group));
+                    itemIndex++;
+                }
 
-            // footer
-            if (useFooters)
-            {
-                _allItems.Add(new SourceItem(TemplateItemType.Footer, group));
-                itemIndex++;
+                // items
+                foreach (var item in group)
+                {
+                    _allItems.Add(new SourceItem(TemplateItemType.Item, item));
+                    itemIndex++;
+                }
+
+                // footer
+                if (useFooters)
+                {
+                    _allItems.Add(new SourceItem(TemplateItemType.Footer, group));
+                    itemIndex++;
+                }
             }
         }
     }

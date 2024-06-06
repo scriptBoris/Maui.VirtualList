@@ -8,12 +8,12 @@ using VirtualList.Maui.Utils;
 
 namespace VirtualList.Maui;
 
-public class VirtualList :
-#if RELEASE
-    ScrollViewProd
-#else
-    ScrollViewOut
-#endif
+public class VirtualList : ScrollViewProd
+//#if RELEASE
+//    ScrollViewProd
+//#else
+//    ScrollViewOut
+//#endif
 {
     private readonly Body _body;
 

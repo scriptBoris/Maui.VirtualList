@@ -99,27 +99,16 @@ public class Body : Layout, IBody, ILayoutManager
     public bool RequestResize { get; private set; } = true;
     public bool RequestRedraw { get; private set; } = true;
     public double AvgCellHeight { get; private set; } = -1;
+
+    /// <summary>
+    /// Предполагаемая высота элементов (Headers + Items)
+    /// </summary>
     public double EstimatedHeight { get; private set; } = -1;
 
-    // TODO Убрать, вставка идет норм без этого
-    [Obsolete("Убрать")]
     /// <summary>
-    /// Прокрутил ли пользователь по конца списка или нет
+    /// Закэшированная высота содержимого ScrollView
     /// </summary>
-    public bool IsScrolledToEnd
-    {
-        get
-        {
-            if (ViewPortHeight >= EstimatedHeight)
-                return false;
-
-            double perc = ViewPortHeight / EstimatedHeight;
-            if (perc > 0.8 && ViewPortBottomLim.IsEquals(EstimatedHeight, 5))
-                return true;
-
-            return ViewPortBottomLim.IsEquals(EstimatedHeight, 5);
-        }
-    }
+    public double CachedDrawHeight { get; private set; } = -1;
 
     /// <summary>
     /// 0.0 - top<br/>
@@ -255,7 +244,7 @@ public class Body : Layout, IBody, ILayoutManager
 
     public Size ArrangeChildren(Rect bounds)
     {
-        bool useCache = 
+        bool useCache =
             _viewPortSizeCache.Width.IsEquals(_scroller.MeasureViewPortWidth) &&
             _viewPortSizeCache.Height.IsEquals(_scroller.MeasureViewPortHeight);
 
@@ -265,7 +254,7 @@ public class Body : Layout, IBody, ILayoutManager
         if (useCache)
         {
 
-// на ШЫНДОВСЕ обязательно нужно перерисовывать все элементы!
+            // на ШЫНДОВСЕ обязательно нужно перерисовывать все элементы!
 #if WINDOWS
             return Draw(bounds);
 // на мобилках можно использовать уже отрисованный кэш, для улучшения производительности
@@ -283,7 +272,7 @@ public class Body : Layout, IBody, ILayoutManager
 
     public Size Measure(double widthConstraint, double heightConstraint)
     {
-        double height = EstimatedHeight;
+        double height = CachedDrawHeight;
         double measureViewPortWidth = _scroller.MeasureViewPortWidth;
         double measureViewPortHeight = _scroller.MeasureViewPortHeight;
 
@@ -295,18 +284,33 @@ public class Body : Layout, IBody, ILayoutManager
             foreach (var item in items)
                 item.HardMeasure(widthConstraint, heightConstraint);
 
+            double[] maxs;
             if (AvgCellHeight < 0 && Cunt > 0)
             {
-                InitStartedCells(measureViewPortWidth, measureViewPortHeight);
-                height = RecalcEstimateHeight(measureViewPortWidth, measureViewPortHeight);
+                double initDrawHeight = InitStartedCells(measureViewPortWidth, measureViewPortHeight);
+                AvgCellHeight = CalcAverageCellHeight();
+                EstimatedHeight = (_cacheController.Count == Cunt) ? initDrawHeight : Cunt * AvgCellHeight;
+
+                maxs =
+                [
+                    (_cacheController.Count == Cunt) ? initDrawHeight : Cunt * AvgCellHeight,
+                    measureViewPortHeight,
+                ];
+            }
+            else
+            {
+                maxs =
+                [
+                    EstimatedHeight,
+                    measureViewPortHeight
+                ];
             }
 
+            height = maxs.Max();
             RequestResize = false;
         }
 
-        if (height < measureViewPortHeight)
-            height = measureViewPortHeight;
-
+        CachedDrawHeight = height;
         return new Size(widthConstraint, height);
     }
 
@@ -472,7 +476,7 @@ public class Body : Layout, IBody, ILayoutManager
             rule = ShifleCacheRules.NoCacheBottom;
 
         _shifleController.UseShifle(rule, _cacheController, ItemsSource);
-        
+
         // 5: IndexLogic error correction
         // Проходимся по КЭШ элементам, если находим ошибки непоследовательности
         // ItemsSource - фиксим их
@@ -766,20 +770,6 @@ public class Body : Layout, IBody, ILayoutManager
         Redraw();
     }
 
-    public double RecalcEstimateHeight(double vpWidth, double vpHeight)
-    {
-        AvgCellHeight = CalcAverageCellHeight();
-        double result = Cunt * AvgCellHeight;
-        if (result <= 0)
-            result = vpHeight;
-
-        EstimatedHeight = result;
-        if (result < vpHeight)
-            result = vpHeight;
-
-        return result;
-    }
-
     private double CalcAverageCellHeight()
     {
         double res = _cacheController.CalcAverageCellHeight(ItemsSource);
@@ -787,7 +777,7 @@ public class Body : Layout, IBody, ILayoutManager
         return res;
     }
 
-    private void InitStartedCells(double vpwidth, double vpheight)
+    private double InitStartedCells(double vpwidth, double vpheight)
     {
         using var busy = StartCalc();
         int index = 0;
@@ -813,6 +803,8 @@ public class Body : Layout, IBody, ILayoutManager
             freeViewPort -= cell.DrawedSize.Height;
             index++;
         }
+
+        return newOffsetY;
     }
 
     private IDisposable StartCalc()
