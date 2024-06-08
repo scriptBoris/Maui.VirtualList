@@ -23,7 +23,7 @@
 		<PackageTags>maui, collectionview, listview, virtual, list</PackageTags>
 		<GeneratePackageOnBuild>True</GeneratePackageOnBuild>
 		<PublishAot>True</PublishAot>
-		<Version>0.0.1-beta</Version>
+		<Version>0.0.2-beta</Version>
 		<PackageOutputPath>$(SolutionDir)/Nuget</PackageOutputPath>
 	</PropertyGroup>
 
